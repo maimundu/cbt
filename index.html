@@ -57,11 +57,18 @@
             // Siswa
             getSiswa: () => JSON.parse(localStorage.cbt_siswa),
             simpanSiswa: d => { let a=DB.getSiswa(); a.push(d); localStorage.cbt_siswa=JSON.stringify(a); return true; },
+            hapusSiswa: i => { let a=DB.getSiswa(); a.splice(i,1); localStorage.cbt_siswa=JSON.stringify(a); return true; },
 
             // Mata Pelajaran + Waktu
             getMapel: () => JSON.parse(localStorage.cbt_mapel),
             simpanMapel: d => { let a=DB.getMapel(); a.push(d); localStorage.cbt_mapel=JSON.stringify(a); return true; },
-            updateMapel: (i,d) => { let a=DB.getMapel(); a[i]=d; localStorage.cbt_mapel=JSON.stringify(a); return true; },
+            hapusMapel: i => {
+                const namaMapel = DB.getMapel()[i].nama;
+                let a=DB.getMapel(); a.splice(i,1); localStorage.cbt_mapel=JSON.stringify(a);
+                // Hapus juga soal yang terkait mapel ini
+                let s=DB.getSoal(); s=s.filter(x=>x.mapel!==namaMapel); localStorage.cbt_soal=JSON.stringify(s);
+                return true;
+            },
 
             // Soal (A-E)
             getSoal: () => JSON.parse(localStorage.cbt_soal),
@@ -184,7 +191,7 @@
             <!-- Data Siswa -->
             <div id="tab_siswa" class="tab-konten hidden">
                 <div class="bg-white p-6 rounded-xl card-shadow">
-                    <h3 class="text-lg font-semibold mb-4">Tambah Akun Siswa</h3>
+                    <h3 class="text-lg font-semibold mb-4">Tambah & Kelola Akun Siswa</h3>
                     <form id="form_siswa" class="grid md:grid-cols-2 gap-3 mb-6">
                         <input type="text" id="nama_siswa" placeholder="Nama Lengkap" class="p-3 border rounded-lg" required>
                         <input type="text" id="nis_siswa" placeholder="NIS/NISN" class="p-3 border rounded-lg" required>
@@ -199,6 +206,7 @@
                                 <th class="table-cell">Nama</th>
                                 <th class="table-cell">NIS</th>
                                 <th class="table-cell">Username</th>
+                                <th class="table-cell">Aksi</th>
                             </tr></thead>
                             <tbody id="tabel_siswa"></tbody>
                         </table>
@@ -285,19 +293,34 @@
                 document.getElementById('jml_soal').innerText=DB.getSoal().length;
                 document.getElementById('jml_hasil').innerText=DB.getHasil().length;
 
-                // Tabel Siswa
-                let html=''; DB.getSiswa().forEach((s,i)=>html+=`<tr><td class="table-cell">${i+1}</td><td class="table-cell">${s.nama}</td><td class="table-cell">${s.nis}</td><td class="table-cell">${s.username}</td></tr>`);
+                // Tabel Siswa + Tombol Hapus
+                let html=''; DB.getSiswa().forEach((s,i)=>html+=`<tr>
+                    <td class="table-cell">${i+1}</td>
+                    <td class="table-cell">${s.nama}</td>
+                    <td class="table-cell">${s.nis}</td>
+                    <td class="table-cell">${s.username}</td>
+                    <td class="table-cell text-center">
+                        <button onclick="if(confirm('Yakin hapus siswa ini?')){DB.hapusSiswa(${i});muatDataAdmin();}" class="text-red-500 hover:text-red-700">
+                            <i class="fa fa-trash"></i> Hapus
+                        </button>
+                    </td>
+                </tr>`);
                 document.getElementById('tabel_siswa').innerHTML=html;
 
                 // Pilih Mapel
                 let opt=''; DB.getMapel().forEach(m=>opt+=`<option value="${m.nama}">${m.nama}</option>`);
                 document.getElementById('pilih_mapel').innerHTML=`<option value="">Pilih Mata Pelajaran</option>`+opt;
 
-                // Daftar Mapel + Waktu
+                // Daftar Mapel + Waktu + Tombol Hapus
                 let dm=''; DB.getMapel().forEach((m,i)=>{
                     dm+=`<div class="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
-                        <span>${i+1}. ${m.nama}</span>
-                        <span class="text-sm text-gray-500">${m.jam_mulai.replace('T',' ')} s.d ${m.jam_selesai.replace('T',' ')}</span>
+                        <div>
+                            <span class="font-medium">${m.nama}</span>
+                            <div class="text-sm text-gray-500 mt-1">${m.jam_mulai.replace('T',' ')} s.d ${m.jam_selesai.replace('T',' ')}</div>
+                        </div>
+                        <button onclick="if(confirm('Yakin hapus mapel ini? Soal terkait juga akan terhapus!')){DB.hapusMapel(${i});muatDataAdmin();}" class="text-red-500 hover:text-red-700 px-2">
+                            <i class="fa fa-trash"></i> Hapus
+                        </button>
                     </div>`;
                 });
                 document.getElementById('daftar_mapel').innerHTML=dm;
