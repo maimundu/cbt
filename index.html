@@ -25,26 +25,19 @@
     </script>
     <style type="text/tailwindcss">
         @layer utilities {
-            .content-auto {
-                content-visibility: auto;
-            }
-            .card-shadow {
-                box-shadow: 0 10px 30px rgba(22, 93, 255, 0.15);
-            }
-            .btn-hover {
-                @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-lg;
-            }
+            .content-auto { content-visibility: auto; }
+            .card-shadow { box-shadow: 0 10px 30px rgba(22, 93, 255, 0.15); }
+            .btn-hover { @apply transition-all duration-300 hover:scale-[1.02] hover:shadow-lg; }
+            .table-cell { @apply px-3 py-2 text-sm border border-gray-200; }
         }
     </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-    <!-- ===================== BACKEND SEDERHANA (SIMPAN DATA DI LOCALSTORAGE) ===================== -->
+    <!-- BACKEND & PENYIMPANAN DATA -->
     <script>
-        // Data Awal
         const DB = {
             init: function() {
                 if(!localStorage.getItem('cbt_admin')) {
-                    // Akun default bisa diubah operator sekolah nanti
                     localStorage.setItem('cbt_admin', JSON.stringify({
                         username: 'admin_sekolah',
                         password: 'admin123',
@@ -52,89 +45,77 @@
                     }));
                 }
                 if(!localStorage.getItem('cbt_siswa')) localStorage.setItem('cbt_siswa', JSON.stringify([]));
+                if(!localStorage.getItem('cbt_mapel')) localStorage.setItem('cbt_mapel', JSON.stringify([]));
                 if(!localStorage.getItem('cbt_soal')) localStorage.setItem('cbt_soal', JSON.stringify([]));
                 if(!localStorage.getItem('cbt_hasil')) localStorage.setItem('cbt_hasil', JSON.stringify([]));
             },
 
-            // Fungsi Login
-            loginAdmin: function(user, pass) {
-                const admin = JSON.parse(localStorage.getItem('cbt_admin'));
-                return (admin.username === user && admin.password === pass);
-            },
-            loginSiswa: function(user, pass) {
-                const siswa = JSON.parse(localStorage.getItem('cbt_siswa'));
-                return siswa.find(s => s.username === user && s.password === pass);
-            },
+            // Login
+            loginAdmin: (u,p) => { const a=JSON.parse(localStorage.cbt_admin); return a.username===u && a.password===p; },
+            loginSiswa: (u,p) => JSON.parse(localStorage.cbt_siswa).find(s=>s.username===u && s.password===p),
 
-            // Fungsi Data Siswa
-            getSiswa: () => JSON.parse(localStorage.getItem('cbt_siswa')),
-            tambahSiswa: function(data) {
-                const siswa = this.getSiswa();
-                siswa.push(data);
-                localStorage.setItem('cbt_siswa', JSON.stringify(siswa));
-                return true;
-            },
+            // Siswa
+            getSiswa: () => JSON.parse(localStorage.cbt_siswa),
+            simpanSiswa: d => { let a=DB.getSiswa(); a.push(d); localStorage.cbt_siswa=JSON.stringify(a); return true; },
 
-            // Fungsi Data Soal
-            getSoal: () => JSON.parse(localStorage.getItem('cbt_soal')),
-            tambahSoal: function(data) {
-                const soal = this.getSoal();
-                soal.push(data);
-                localStorage.setItem('cbt_soal', JSON.stringify(soal));
-                return true;
-            },
+            // Mata Pelajaran + Waktu
+            getMapel: () => JSON.parse(localStorage.cbt_mapel),
+            simpanMapel: d => { let a=DB.getMapel(); a.push(d); localStorage.cbt_mapel=JSON.stringify(a); return true; },
+            updateMapel: (i,d) => { let a=DB.getMapel(); a[i]=d; localStorage.cbt_mapel=JSON.stringify(a); return true; },
 
-            // Simpan Hasil Ujian
-            simpanHasil: function(data) {
-                const hasil = JSON.parse(localStorage.getItem('cbt_hasil'));
-                hasil.push(data);
-                localStorage.setItem('cbt_hasil', JSON.stringify(hasil));
-                return true;
-            }
+            // Soal (A-E)
+            getSoal: () => JSON.parse(localStorage.cbt_soal),
+            simpanSoal: d => { let a=DB.getSoal(); a.push(d); localStorage.cbt_soal=JSON.stringify(a); return true; },
+            getSoalByMapel: n => DB.getSoal().filter(s=>s.mapel===n),
+
+            // Hasil Ujian
+            getHasil: () => JSON.parse(localStorage.cbt_hasil),
+            simpanHasil: d => { let a=DB.getHasil(); a.push(d); localStorage.cbt_hasil=JSON.stringify(a); return true; }
         };
         DB.init();
 
-        // Fungsi Navigasi
+        // Navigasi
         function tampilkanHalaman(id) {
-            document.querySelectorAll('.halaman').forEach(el => el.classList.add('hidden'));
+            document.querySelectorAll('.halaman').forEach(e=>e.classList.add('hidden'));
             document.getElementById(id).classList.remove('hidden');
         }
-
-        // Fungsi Login
-        function prosesLogin(tipe) {
-            const user = document.getElementById('username').value.trim();
-            const pass = document.getElementById('password').value.trim();
-            
-            if(!user || !pass) return alert('Isi Username dan Password!');
-
-            if(tipe === 'admin') {
-                if(DB.loginAdmin(user, pass)) {
-                    tampilkanHalaman('halaman_admin');
-                    return;
-                }
-                alert('Username atau Password Admin Salah!');
-            } else {
-                const akun = DB.loginSiswa(user, pass);
-                if(akun) {
-                    sessionStorage.setItem('siswa_aktif', JSON.stringify(akun));
-                    tampilkanHalaman('halaman_siswa');
-                    return;
-                }
-                alert('Akun Siswa Tidak Ditemukan!');
-            }
-            document.getElementById('username').value = '';
-            document.getElementById('password').value = '';
-        }
-
-        // Logout
         function keluar() {
             sessionStorage.removeItem('siswa_aktif');
+            sessionStorage.removeItem('mapel_aktif');
             tampilkanHalaman('halaman_login');
-            document.getElementById('form_login').reset();
+        }
+
+        // Login
+        function prosesLogin(tipe) {
+            const u=document.getElementById('username').value.trim();
+            const p=document.getElementById('password').value.trim();
+            if(!u||!p) return alert('Isi semua kolom!');
+
+            if(tipe==='admin') {
+                if(DB.loginAdmin(u,p)) { tampilkanHalaman('halaman_admin'); muatDataAdmin(); return; }
+                alert('Username/Password Admin salah!');
+            } else {
+                const akun=DB.loginSiswa(u,p);
+                if(akun) {
+                    sessionStorage.setItem('siswa_aktif',JSON.stringify(akun));
+                    tampilkanHalaman('halaman_siswa'); muatDataSiswa(); return;
+                }
+                alert('Akun Siswa tidak ditemukan!');
+            }
+        }
+
+        // Cek Waktu Ujian per Mapel
+        function cekWaktuUjian(mapel) {
+            const data = DB.getMapel().find(m=>m.nama===mapel);
+            if(!data || !data.jam_mulai || !data.jam_selesai) return false;
+            const sekarang=new Date().getTime();
+            const mulai=new Date(data.jam_mulai).getTime();
+            const selesai=new Date(data.jam_selesai).getTime();
+            return sekarang>=mulai && sekarang<=selesai;
         }
     </script>
 
-    <!-- ===================== HALAMAN LOGIN ===================== -->
+    <!-- HALAMAN LOGIN -->
     <div id="halaman_login" class="halaman flex items-center justify-center min-h-screen p-4">
         <div class="w-full max-w-md bg-white rounded-2xl p-8 card-shadow">
             <div class="text-center mb-8">
@@ -144,215 +125,349 @@
                 <h2 class="text-2xl font-bold text-dark">CBT SEKOLAH</h2>
                 <p class="text-gray-500 mt-1">Sistem Ujian Berbasis Komputer</p>
             </div>
-
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Username</label>
-                    <input type="text" id="username" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" placeholder="Masukkan Username">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
-                    <input type="password" id="password" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-primary outline-none transition" placeholder="Masukkan Password">
-                </div>
-
+                <input type="text" id="username" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none" placeholder="Username">
+                <input type="password" id="password" class="w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-primary outline-none" placeholder="Password">
                 <div class="grid grid-cols-2 gap-3 mt-6">
                     <button onclick="prosesLogin('admin')" class="bg-primary text-white py-3 rounded-lg font-medium btn-hover">
-                        <i class="fa fa-user-shield mr-2"></i> Masuk Admin
+                        <i class="fa fa-user-shield mr-2"></i>Masuk Admin
                     </button>
                     <button onclick="prosesLogin('siswa')" class="bg-secondary text-white py-3 rounded-lg font-medium btn-hover">
-                        <i class="fa fa-user mr-2"></i> Masuk Siswa
+                        <i class="fa fa-user mr-2"></i>Masuk Siswa
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- ===================== HALAMAN ADMIN / OPERATOR ===================== -->
+    <!-- HALAMAN ADMIN -->
     <div id="halaman_admin" class="halaman hidden">
-        <header class="bg-white shadow-sm sticky top-0 z-10">
+        <header class="bg-white shadow-sm sticky top-0">
             <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <i class="fa fa-graduation-cap text-primary text-xl"></i>
-                    <h1 class="text-xl font-bold text-dark">Panel Operator Sekolah</h1>
-                </div>
-                <button onclick="keluar()" class="text-red-500 hover:text-red-700 font-medium">
-                    <i class="fa fa-sign-out mr-1"></i> Keluar
-                </button>
+                <div class="flex items-center gap-2"><i class="fa fa-graduation-cap text-primary text-xl"></i>
+                <h1 class="text-xl font-bold">Panel Operator Sekolah</h1></div>
+                <button onclick="keluar()" class="text-red-500 font-medium"><i class="fa fa-sign-out mr-1"></i>Keluar</button>
             </div>
         </header>
+        <div class="container mx-auto px-4 py-6">
+            <!-- Menu Tab -->
+            <div class="flex flex-wrap gap-2 mb-6">
+                <button onclick="tabAdmin('dashboard')" class="tab-btn px-4 py-2 bg-primary text-white rounded-lg">Dashboard</button>
+                <button onclick="tabAdmin('siswa')" class="tab-btn px-4 py-2 bg-gray-200 rounded-lg">Data Siswa</button>
+                <button onclick="tabAdmin('mapel')" class="tab-btn px-4 py-2 bg-gray-200 rounded-lg">Mata Pelajaran & Waktu</button>
+                <button onclick="tabAdmin('soal')" class="tab-btn px-4 py-2 bg-gray-200 rounded-lg">Bank Soal</button>
+                <button onclick="tabAdmin('hasil')" class="tab-btn px-4 py-2 bg-gray-200 rounded-lg">Hasil Ujian</button>
+            </div>
 
-        <div class="container mx-auto px-4 py-8">
-            <div class="grid md:grid-cols-3 gap-6 mb-8">
-                <div class="bg-white p-6 rounded-xl card-shadow">
-                    <h3 class="font-semibold text-gray-600">Total Siswa</h3>
-                    <p class="text-3xl font-bold mt-2 text-primary" id="jml_siswa">0</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl card-shadow">
-                    <h3 class="font-semibold text-gray-600">Jumlah Soal</h3>
-                    <p class="text-3xl font-bold mt-2 text-secondary" id="jml_soal">0</p>
-                </div>
-                <div class="bg-white p-6 rounded-xl card-shadow">
-                    <h3 class="font-semibold text-gray-600">Hasil Ujian</h3>
-                    <p class="text-3xl font-bold mt-2 text-green-600">0</p>
+            <!-- Dashboard -->
+            <div id="tab_dashboard" class="tab-konten">
+                <div class="grid md:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-xl card-shadow">
+                        <h3 class="text-gray-600">Total Siswa</h3>
+                        <p class="text-2xl font-bold text-primary mt-1" id="jml_siswa">0</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl card-shadow">
+                        <h3 class="text-gray-600">Mata Pelajaran</h3>
+                        <p class="text-2xl font-bold text-secondary mt-1" id="jml_mapel">0</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl card-shadow">
+                        <h3 class="text-gray-600">Jumlah Soal</h3>
+                        <p class="text-2xl font-bold text-orange-500 mt-1" id="jml_soal">0</p>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl card-shadow">
+                        <h3 class="text-gray-600">Peserta Ujian</h3>
+                        <p class="text-2xl font-bold text-green-600 mt-1" id="jml_hasil">0</p>
+                    </div>
                 </div>
             </div>
 
-            <div class="grid md:grid-cols-2 gap-6">
-                <!-- Form Tambah Akun Siswa -->
+            <!-- Data Siswa -->
+            <div id="tab_siswa" class="tab-konten hidden">
                 <div class="bg-white p-6 rounded-xl card-shadow">
-                    <h3 class="text-lg font-semibold mb-4 border-b pb-2">Tambah Akun Siswa</h3>
-                    <form id="form_siswa" class="space-y-3">
-                        <input type="text" id="nama_siswa" placeholder="Nama Lengkap" class="w-full p-3 border rounded-lg" required>
-                        <input type="text" id="nis_siswa" placeholder="NIS / NISN" class="w-full p-3 border rounded-lg" required>
-                        <input type="text" id="user_siswa" placeholder="Username Login" class="w-full p-3 border rounded-lg" required>
-                        <input type="password" id="pass_siswa" placeholder="Password Login" class="w-full p-3 border rounded-lg" required>
-                        <button type="submit" class="w-full bg-primary text-white py-2 rounded-lg btn-hover">Simpan Akun</button>
+                    <h3 class="text-lg font-semibold mb-4">Tambah Akun Siswa</h3>
+                    <form id="form_siswa" class="grid md:grid-cols-2 gap-3 mb-6">
+                        <input type="text" id="nama_siswa" placeholder="Nama Lengkap" class="p-3 border rounded-lg" required>
+                        <input type="text" id="nis_siswa" placeholder="NIS/NISN" class="p-3 border rounded-lg" required>
+                        <input type="text" id="user_siswa" placeholder="Username" class="p-3 border rounded-lg" required>
+                        <input type="password" id="pass_siswa" placeholder="Password" class="p-3 border rounded-lg" required>
+                        <button class="md:col-span-2 bg-primary text-white py-2 rounded-lg btn-hover">Simpan Akun</button>
                     </form>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50"><tr>
+                                <th class="table-cell">No</th>
+                                <th class="table-cell">Nama</th>
+                                <th class="table-cell">NIS</th>
+                                <th class="table-cell">Username</th>
+                            </tr></thead>
+                            <tbody id="tabel_siswa"></tbody>
+                        </table>
+                    </div>
                 </div>
+            </div>
 
-                <!-- Form Tambah Soal -->
+            <!-- Mata Pelajaran & Waktu -->
+            <div id="tab_mapel" class="tab-konten hidden">
                 <div class="bg-white p-6 rounded-xl card-shadow">
-                    <h3 class="text-lg font-semibold mb-4 border-b pb-2">Tambah Soal Pilihan Ganda</h3>
+                    <h3 class="text-lg font-semibold mb-4">Kelola Mata Pelajaran & Waktu Ujian</h3>
+                    <form id="form_mapel" class="space-y-3 mb-6">
+                        <input type="text" id="nama_mapel" placeholder="Nama Mata Pelajaran" class="w-full p-3 border rounded-lg" required>
+                        <div class="grid md:grid-cols-2 gap-3">
+                            <div>
+                                <label class="block mb-1 font-medium">Jam Mulai</label>
+                                <input type="datetime-local" id="jam_mulai" class="w-full p-3 border rounded-lg" required>
+                            </div>
+                            <div>
+                                <label class="block mb-1 font-medium">Jam Selesai</label>
+                                <input type="datetime-local" id="jam_selesai" class="w-full p-3 border rounded-lg" required>
+                            </div>
+                        </div>
+                        <button class="w-full bg-secondary text-white py-2 rounded-lg btn-hover">Simpan Mapel & Waktu</button>
+                    </form>
+                    <div class="space-y-2" id="daftar_mapel"></div>
+                </div>
+            </div>
+
+            <!-- Bank Soal (A-E) -->
+            <div id="tab_soal" class="tab-konten hidden">
+                <div class="bg-white p-6 rounded-xl card-shadow">
+                    <h3 class="text-lg font-semibold mb-4">Tambah Soal Pilihan Ganda (A-E)</h3>
                     <form id="form_soal" class="space-y-3">
-                        <textarea id="teks_soal" rows="2" placeholder="Tuliskan Pertanyaan" class="w-full p-3 border rounded-lg" required></textarea>
+                        <select id="pilih_mapel" class="w-full p-3 border rounded-lg" required>
+                            <option value="">Pilih Mata Pelajaran</option>
+                        </select>
+                        <textarea id="teks_soal" rows="2" placeholder="Pertanyaan" class="w-full p-3 border rounded-lg" required></textarea>
                         <input type="text" id="opsi_a" placeholder="Opsi A" class="w-full p-3 border rounded-lg" required>
                         <input type="text" id="opsi_b" placeholder="Opsi B" class="w-full p-3 border rounded-lg" required>
                         <input type="text" id="opsi_c" placeholder="Opsi C" class="w-full p-3 border rounded-lg" required>
                         <input type="text" id="opsi_d" placeholder="Opsi D" class="w-full p-3 border rounded-lg" required>
+                        <input type="text" id="opsi_e" placeholder="Opsi E" class="w-full p-3 border rounded-lg" required>
                         <select id="kunci_jawaban" class="w-full p-3 border rounded-lg" required>
-                            <option value="">Pilih Jawaban Benar</option>
-                            <option value="A">A</option>
-                            <option value="B">B</option>
-                            <option value="C">C</option>
-                            <option value="D">D</option>
+                            <option value="">Jawaban Benar</option>
+                            <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option>
                         </select>
-                        <button type="submit" class="w-full bg-secondary text-white py-2 rounded-lg btn-hover">Simpan Soal</button>
+                        <button class="w-full bg-orange-500 text-white py-2 rounded-lg btn-hover">Simpan Soal</button>
                     </form>
+                </div>
+            </div>
+
+            <!-- Hasil Ujian -->
+            <div id="tab_hasil" class="tab-konten hidden">
+                <div class="bg-white p-6 rounded-xl card-shadow">
+                    <h3 class="text-lg font-semibold mb-4">Daftar Hasil Ujian</h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full">
+                            <thead class="bg-gray-50"><tr>
+                                <th class="table-cell">No</th>
+                                <th class="table-cell">Nama Siswa</th>
+                                <th class="table-cell">Mapel</th>
+                                <th class="table-cell">Benar</th>
+                                <th class="table-cell">Nilai</th>
+                                <th class="table-cell">Waktu</th>
+                            </tr></thead>
+                            <tbody id="tabel_hasil"></tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
         </div>
 
         <script>
-            // Update Data Admin
-            document.getElementById('jml_siswa').innerText = DB.getSiswa().length;
-            document.getElementById('jml_soal').innerText = DB.getSoal().length;
+            function tabAdmin(nama) {
+                document.querySelectorAll('.tab-konten').forEach(e=>e.classList.add('hidden'));
+                document.querySelectorAll('.tab-btn').forEach(e=>e.classList.replace('bg-primary','bg-gray-200'));
+                document.getElementById('tab_'+nama).classList.remove('hidden');
+                event.target.classList.replace('bg-gray-200','bg-primary');
+            }
+            function muatDataAdmin() {
+                document.getElementById('jml_siswa').innerText=DB.getSiswa().length;
+                document.getElementById('jml_mapel').innerText=DB.getMapel().length;
+                document.getElementById('jml_soal').innerText=DB.getSoal().length;
+                document.getElementById('jml_hasil').innerText=DB.getHasil().length;
+
+                // Tabel Siswa
+                let html=''; DB.getSiswa().forEach((s,i)=>html+=`<tr><td class="table-cell">${i+1}</td><td class="table-cell">${s.nama}</td><td class="table-cell">${s.nis}</td><td class="table-cell">${s.username}</td></tr>`);
+                document.getElementById('tabel_siswa').innerHTML=html;
+
+                // Pilih Mapel
+                let opt=''; DB.getMapel().forEach(m=>opt+=`<option value="${m.nama}">${m.nama}</option>`);
+                document.getElementById('pilih_mapel').innerHTML=`<option value="">Pilih Mata Pelajaran</option>`+opt;
+
+                // Daftar Mapel + Waktu
+                let dm=''; DB.getMapel().forEach((m,i)=>{
+                    dm+=`<div class="p-3 bg-gray-50 rounded-lg flex justify-between items-center">
+                        <span>${i+1}. ${m.nama}</span>
+                        <span class="text-sm text-gray-500">${m.jam_mulai.replace('T',' ')} s.d ${m.jam_selesai.replace('T',' ')}</span>
+                    </div>`;
+                });
+                document.getElementById('daftar_mapel').innerHTML=dm;
+
+                // Tabel Hasil
+                let th=''; DB.getHasil().forEach((h,i)=>th+=`<tr><td class="table-cell">${i+1}</td><td class="table-cell">${h.nama}</td><td class="table-cell">${h.mapel}</td><td class="table-cell">${h.benar}/${h.total}</td><td class="table-cell font-bold">${h.nilai}</td><td class="table-cell">${h.waktu}</td></tr>`);
+                document.getElementById('tabel_hasil').innerHTML=th;
+            }
 
             // Simpan Siswa
-            document.getElementById('form_siswa').addEventListener('submit', function(e) {
+            document.getElementById('form_siswa').addEventListener('submit',e=>{
                 e.preventDefault();
-                DB.tambahSiswa({
-                    nama: document.getElementById('nama_siswa').value,
-                    nis: document.getElementById('nis_siswa').value,
-                    username: document.getElementById('user_siswa').value,
-                    password: document.getElementById('pass_siswa').value
+                DB.simpanSiswa({
+                    nama:document.getElementById('nama_siswa').value,
+                    nis:document.getElementById('nis_siswa').value,
+                    username:document.getElementById('user_siswa').value,
+                    password:document.getElementById('pass_siswa').value
                 });
-                alert('Akun siswa berhasil dibuat!');
-                this.reset();
-                document.getElementById('jml_siswa').innerText = DB.getSiswa().length;
+                alert('Akun siswa tersimpan!'); e.target.reset(); muatDataAdmin();
             });
 
-            // Simpan Soal
-            document.getElementById('form_soal').addEventListener('submit', function(e) {
+            // Simpan Mapel + Waktu
+            document.getElementById('form_mapel').addEventListener('submit',e=>{
                 e.preventDefault();
-                DB.tambahSoal({
-                    soal: document.getElementById('teks_soal').value,
-                    a: document.getElementById('opsi_a').value,
-                    b: document.getElementById('opsi_b').value,
-                    c: document.getElementById('opsi_c').value,
-                    d: document.getElementById('opsi_d').value,
-                    jawaban: document.getElementById('kunci_jawaban').value
+                DB.simpanMapel({
+                    nama:document.getElementById('nama_mapel').value,
+                    jam_mulai:document.getElementById('jam_mulai').value,
+                    jam_selesai:document.getElementById('jam_selesai').value
                 });
-                alert('Soal berhasil ditambahkan!');
-                this.reset();
-                document.getElementById('jml_soal').innerText = DB.getSoal().length;
+                alert('Mata pelajaran & waktu tersimpan!'); e.target.reset(); muatDataAdmin();
+            });
+
+            // Simpan Soal (A-E)
+            document.getElementById('form_soal').addEventListener('submit',e=>{
+                e.preventDefault();
+                DB.simpanSoal({
+                    mapel:document.getElementById('pilih_mapel').value,
+                    soal:document.getElementById('teks_soal').value,
+                    a:document.getElementById('opsi_a').value,
+                    b:document.getElementById('opsi_b').value,
+                    c:document.getElementById('opsi_c').value,
+                    d:document.getElementById('opsi_d').value,
+                    e:document.getElementById('opsi_e').value,
+                    jawaban:document.getElementById('kunci_jawaban').value
+                });
+                alert('Soal tersimpan!'); e.target.reset(); muatDataAdmin();
             });
         </script>
     </div>
 
-    <!-- ===================== HALAMAN SISWA ===================== -->
+    <!-- HALAMAN SISWA -->
     <div id="halaman_siswa" class="halaman hidden">
-        <header class="bg-white shadow-sm sticky top-0 z-10">
+        <header class="bg-white shadow-sm sticky top-0">
             <div class="container mx-auto px-4 py-4 flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <i class="fa fa-graduation-cap text-primary text-xl"></i>
-                    <h1 class="text-xl font-bold text-dark">Ujian Online</h1>
-                </div>
+                <div class="flex items-center gap-2"><i class="fa fa-graduation-cap text-primary text-xl"></i>
+                <h1 class="text-xl font-bold">Ujian Online</h1></div>
                 <div class="flex items-center gap-4">
-                    <span class="text-gray-600 font-medium" id="nama_siswa_aktif"></span>
-                    <button onclick="keluar()" class="text-red-500 hover:text-red-700 font-medium">
-                        <i class="fa fa-sign-out mr-1"></i> Keluar
-                    </button>
+                    <span class="font-medium text-gray-700" id="nama_siswa"></span>
+                    <button onclick="keluar()" class="text-red-500 font-medium"><i class="fa fa-sign-out mr-1"></i>Keluar</button>
                 </div>
             </div>
         </header>
+        <div class="container mx-auto px-4 py-6">
+            <!-- PILIH MATA PELAJARAN -->
+            <div id="pilih_mapel_siswa" class="bg-white p-6 rounded-xl card-shadow">
+                <h3 class="text-xl font-bold mb-4 text-center">Pilih Mata Pelajaran Ujian</h3>
+                <div class="space-y-3" id="daftar_mapel_siswa"></div>
+            </div>
 
-        <div class="container mx-auto px-4 py-8">
-            <div class="bg-white p-6 rounded-xl card-shadow">
-                <div class="text-center mb-6">
-                    <h3 class="text-xl font-bold">Selamat Datang di Ujian CBT</h3>
-                    <p class="text-gray-500 mt-2">Kerjakan soal dengan teliti dan jujur</p>
+            <!-- HALAMAN UJIAN -->
+            <div id="halaman_ujian" class="hidden">
+                <div class="mb-4 flex items-center gap-3">
+                    <button onclick="kembaliPilihMapel()" class="text-primary font-medium"><i class="fa fa-arrow-left mr-1"></i>Kembali</button>
+                    <h4 class="text-lg font-semibold" id="nama_mapel_ujian"></h4>
                 </div>
-                <div id="daftar_soal" class="space-y-6">
-                    <div class="text-center text-gray-500 py-10">
-                        <i class="fa fa-file-text-o text-4xl mb-3"></i>
-                        <p>Belum ada soal yang disiapkan operator sekolah</p>
-                    </div>
+                <div class="bg-white p-6 rounded-xl card-shadow">
+                    <div id="info_waktu" class="mb-5 p-4 rounded-lg text-center"></div>
+                    <div id="wadah_soal"></div>
+                    <button id="btn_kumpul" class="hidden w-full mt-6 bg-green-600 text-white py-3 rounded-lg font-medium btn-hover">Kumpulkan Jawaban</button>
                 </div>
-                <button id="btn_kumpul" class="hidden w-full mt-8 bg-green-600 text-white py-3 rounded-lg font-medium btn-hover">Kumpulkan Jawaban</button>
             </div>
         </div>
 
         <script>
-            // Tampilkan Nama Siswa
-            const siswa = JSON.parse(sessionStorage.getItem('siswa_aktif'));
-            document.getElementById('nama_siswa_aktif').innerText = siswa.nama;
+            function muatDataSiswa() {
+                const siswa=JSON.parse(sessionStorage.siswa_aktif);
+                document.getElementById('nama_siswa').innerText=siswa.nama;
 
-            // Tampilkan Soal
-            const soalList = DB.getSoal();
-            if(soalList.length > 0) {
-                const wadah = document.getElementById('daftar_soal');
-                wadah.innerHTML = '';
-                soalList.forEach((s, i) => {
+                // Tampilkan Daftar Mapel
+                const dm=document.getElementById('daftar_mapel_siswa');
+                const mapel=DB.getMapel();
+                if(mapel.length===0) {
+                    dm.innerHTML='<p class="text-center text-gray-500 py-6">Belum ada mata pelajaran yang disiapkan.</p>';
+                    return;
+                }
+                dm.innerHTML='';
+                mapel.forEach(m=>{
+                    const aktif = cekWaktuUjian(m.nama);
+                    dm.innerHTML += `
+                    <button onclick="mulaiUjian('${m.nama}')" 
+                        class="w-full p-4 border rounded-lg text-left ${aktif ? 'border-primary bg-blue-50' : 'border-gray-200 bg-gray-50 opacity-60'} btn-hover">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">${m.nama}</span>
+                            <span class="text-xs px-2 py-1 rounded ${aktif ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}">
+                                ${aktif ? 'Sedang Berlangsung' : 'Belum/Berakhir'}
+                            </span>
+                        </div>
+                        <div class="text-sm text-gray-500 mt-1">${m.jam_mulai.replace('T',' ')} s.d ${m.jam_selesai.replace('T',' ')}</div>
+                    </button>`;
+                });
+            }
+
+            function kembaliPilihMapel() {
+                document.getElementById('pilih_mapel_siswa').classList.remove('hidden');
+                document.getElementById('halaman_ujian').classList.add('hidden');
+            }
+
+            function mulaiUjian(namaMapel) {
+                if(!cekWaktuUjian(namaMapel)) return alert('Ujian belum dimulai atau sudah berakhir!');
+                sessionStorage.setItem('mapel_aktif', namaMapel);
+                document.getElementById('pilih_mapel_siswa').classList.add('hidden');
+                document.getElementById('halaman_ujian').classList.remove('hidden');
+                document.getElementById('nama_mapel_ujian').innerText = namaMapel;
+
+                const soal=DB.getSoalByMapel(namaMapel);
+                const wadah=document.getElementById('wadah_soal');
+                const infoWaktu=document.getElementById('info_waktu');
+                const btnKumpul=document.getElementById('btn_kumpul');
+                const dataMapel = DB.getMapel().find(m=>m.nama===namaMapel);
+
+                infoWaktu.className='mb-5 p-4 bg-blue-50 text-blue-700 rounded-lg text-center font-medium';
+                infoWaktu.innerHTML=`<i class="fa fa-clock-o mr-2"></i>Waktu Ujian: ${dataMapel.jam_mulai.replace('T',' ')} s.d ${dataMapel.jam_selesai.replace('T',' ')}`;
+
+                if(soal.length===0) {
+                    wadah.innerHTML='<p class="text-center text-gray-500 py-10">Belum ada soal untuk mata pelajaran ini.</p>';
+                    btnKumpul.classList.add('hidden'); return;
+                }
+                btnKumpul.classList.remove('hidden');
+                wadah.innerHTML='';
+                soal.forEach((s,i)=>{
                     wadah.innerHTML += `
-                    <div class="border-b pb-5">
+                    <div class="border-b pb-5 mb-5">
                         <p class="font-medium mb-3">${i+1}. ${s.soal}</p>
                         <div class="space-y-2 pl-4">
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="jawab${i}" value="A" class="w-4 h-4"> A. ${s.a}
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="jawab${i}" value="B" class="w-4 h-4"> B. ${s.b}
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="jawab${i}" value="C" class="w-4 h-4"> C. ${s.c}
-                            </label>
-                            <label class="flex items-center gap-2 cursor-pointer">
-                                <input type="radio" name="jawab${i}" value="D" class="w-4 h-4"> D. ${s.d}
-                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="jwb${i}" value="A"> A. ${s.a}</label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="jwb${i}" value="B"> B. ${s.b}</label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="jwb${i}" value="C"> C. ${s.c}</label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="jwb${i}" value="D"> D. ${s.d}</label>
+                            <label class="flex items-center gap-2 cursor-pointer"><input type="radio" name="jwb${i}" value="E"> E. ${s.e}</label>
                         </div>
                     </div>`;
                 });
-                document.getElementById('btn_kumpul').classList.remove('hidden');
 
-                // Proses Pengumpulan
-                document.getElementById('btn_kumpul').onclick = function() {
-                    let benar = 0;
-                    soalList.forEach((s, i) => {
-                        const pilih = document.querySelector(`input[name="jawab${i}"]:checked`);
-                        if(pilih && pilih.value === s.jawaban) benar++;
+                // Kumpulkan
+                btnKumpul.onclick=()=>{
+                    let benar=0;
+                    soal.forEach((s,i)=>{
+                        const pilih=document.querySelector(`input[name="jwb${i}"]:checked`);
+                        if(pilih && pilih.value===s.jawaban) benar++;
                     });
-                    const nilai = Math.round((benar / soalList.length) * 100);
+                    const nilai=Math.round((benar/soal.length)*100);
+                    const siswa=JSON.parse(sessionStorage.siswa_aktif);
                     DB.simpanHasil({
-                        nama: siswa.nama,
-                        nis: siswa.nis,
-                        benar: benar,
-                        total: soalList.length,
-                        nilai: nilai,
-                        waktu: new Date().toLocaleString()
+                        nama:siswa.nama, nis:siswa.nis, mapel:namaMapel,
+                        benar:benar, total:soal.length, nilai:nilai,
+                        waktu:new Date().toLocaleString()
                     });
-                    alert(`Ujian Selesai!\nJawaban Benar: ${benar} dari ${soalList.length}\nNilai Anda: ${nilai}`);
+                    alert(`Ujian Selesai!\nMata Pelajaran: ${namaMapel}\nBenar: ${benar}/${soal.length}\nNilai: ${nilai}`);
                     keluar();
-                }
+                };
             }
         </script>
     </div>
