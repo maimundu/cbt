@@ -100,22 +100,85 @@
         }
 
         let mapelTerpilih=null;
-        function muatDaftarMapelSoal(){
-            const el=document.getElementById('daftar_mapel_soal');
-            el.innerHTML=DATA.mapel.length?'<p class="text-gray-500">Belum ada mata pelajaran</p>':DATA.mapel.map(m=>{
-                const jml=DATA.soal.filter(s=>s.mapel.trim().toLowerCase()===m.nama.trim().toLowerCase()).length;
-                return `<button onclick="lihatSoalMapel('${m.nama}')" class="w-full p-3 mb-2 border rounded flex justify-between ${mapelTerpilih===m.nama?'border-blue-500 bg-blue-50':''}"><span>${m.nama}</span><span>${jml} Soal</span></button>`;
-            }).join('');
-        }
-        function lihatSoalMapel(nama){
-            mapelTerpilih=nama;muatDaftarMapelSoal();document.getElementById('daftar_soal_mapel').classList.remove('hidden');document.getElementById('nama_mapel_dilihat').innerText=nama;
-            const d=DATA.soal.filter(s=>s.mapel.trim().toLowerCase()===nama.trim().toLowerCase());
-            document.getElementById('isi_daftar_soal').innerHTML=d.length?'<p class="text-gray-500">Belum ada soal</p>':d.map((s,i)=>{
-                const idx=DATA.soal.findIndex(x=>x===s);
-                return `<div class="border-b pb-4 mb-4 relative"><button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusSoal',{indeks:idx}).then(()=>lihatSoalMapel('${nama}'));}" class="absolute top-0 right-0 text-red-500"><i class="fa fa-trash"></i> Hapus</button><p class="pr-16">${i+1}. ${s.soal}</p><div class="pl-4 text-sm"><p>A. ${s.a}</p><p>B. ${s.b}</p><p>C. ${s.c}</p><p>D. ${s.d}</p><p>E. ${s.e}</p><p class="text-green-600">Jawaban: ${s.jawaban}</p></div></div>`;
-            }).join('');
-        }
-        function kembaliKeDaftarMapel(){mapelTerpilih=null;muatDaftarMapelSoal();document.getElementById('daftar_soal_mapel').classList.add('hidden');}
+        let mapelTerpilih = null;
+
+// === PERBAIKAN: Daftar Mapel dari Server ===
+function muatDaftarMapelSoal(){
+    const el = document.getElementById('daftar_mapel_soal');
+    if(DATA.mapel.length === 0){
+        el.innerHTML = '<p class="text-gray-500">Belum ada mata pelajaran</p>';
+        return;
+    }
+    el.innerHTML = DATA.mapel.map(m=>{
+        const jumlahSoal = DATA.soal.filter(s=>
+            s.mapel.trim().toLowerCase() === m.nama.trim().toLowerCase()
+        ).length;
+        return `
+            <button onclick="lihatSoalMapel('${m.nama}')" 
+                class="w-full p-3 mb-2 border rounded flex justify-between 
+                ${mapelTerpilih === m.nama ? 'border-blue-500 bg-blue-50' : ''}">
+                <span>${m.nama}</span>
+                <span>${jumlahSoal} Soal</span>
+            </button>
+        `;
+    }).join('');
+}
+
+// === PERBAIKAN: Lihat & Hapus Soal ===
+function lihatSoalMapel(namaMapel){
+    mapelTerpilih = namaMapel;
+    muatDaftarMapelSoal(); // Tandai mapel yang dipilih
+
+    document.getElementById('daftar_soal_mapel').classList.remove('hidden');
+    document.getElementById('nama_mapel_dilihat').innerText = namaMapel;
+
+    // Ambil soal sesuai mapel yang diklik
+    const daftarSoal = DATA.soal.filter(s=>
+        s.mapel.trim().toLowerCase() === namaMapel.trim().toLowerCase()
+    );
+
+    if(daftarSoal.length === 0){
+        document.getElementById('isi_daftar_soal').innerHTML = '<p class="text-gray-500">Belum ada soal untuk mapel ini</p>';
+        return;
+    }
+
+    // Tampilkan soal lengkap dengan tombol Hapus
+    document.getElementById('isi_daftar_soal').innerHTML = daftarSoal.map((soal, urutan)=>{
+        const posisiAsli = DATA.soal.findIndex(x => x === soal);
+        return `
+            <div class="border-b pb-4 mb-4 relative">
+                <button onclick="hapusSoalDariDaftar(${posisiAsli}, '${namaMapel}')" 
+                    class="absolute top-0 right-0 text-red-500 text-sm">
+                    <i class="fa fa-trash"></i> Hapus
+                </button>
+                <p class="pr-16 font-medium">${urutan+1}. ${soal.soal}</p>
+                <div class="pl-4 text-sm mt-2 space-y-1">
+                    <p>A. ${soal.a}</p>
+                    <p>B. ${soal.b}</p>
+                    <p>C. ${soal.c}</p>
+                    <p>D. ${soal.d}</p>
+                    <p>E. ${soal.e}</p>
+                    <p class="text-green-600 font-medium mt-2">Jawaban: ${soal.jawaban}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// === FUNGSI HAPUS SOAL KE SERVER ===
+async function hapusSoalDariDaftar(indeks, namaMapel){
+    if(!confirm('Yakin ingin menghapus soal ini dari server?')) return;
+    await kirimKeServer('hapusSoal', {indeks: indeks});
+    await muatDariServer(); // Muat ulang data terbaru
+    lihatSoalMapel(namaMapel); // Tampil ulang daftar soal
+}
+
+function kembaliKeDaftarMapel(){
+    mapelTerpilih = null;
+    muatDaftarMapelSoal();
+    document.getElementById('daftar_soal_mapel').classList.add('hidden');
+}
+        
 
         // === FUNGSI TAMBAHAN: EDIT & CETAK ===
         function editSiswa(i){
