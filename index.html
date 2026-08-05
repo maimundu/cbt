@@ -11,17 +11,15 @@
         tailwind.config={theme:{extend:{colors:{primary:'#165DFF',secondary:'#36CBCB'}}}};
         // === GANTI DENGAN TAUTAN TERBARU DARI APPS SCRIPT ===
         const URL_SERVER = "https://script.google.com/macros/s/AKfycbwkJjnAfExvEPjTq5laDkQ-On8BakEBk8JFnXE7NdNk-RKeTCgsGVvPw-68ur8H7XoS/exec"; 
-        // Akun Admin Cadangan (selalu bisa masuk)
         const AKUN_ADMIN_TETAP = {username:'admin_sekolah',password:'admin123',nama:'Operator Sekolah'};
         let DATA = {admin:AKUN_ADMIN_TETAP, siswa:[], mapel:[], soal:[], hasil:[]};
+        let INDEKS_EDIT_SISWA = null; // Untuk fitur Edit
 
         async function muatDariServer() {
             try {
                 const res = await fetch(URL_SERVER+"?action=ambilSemua");
                 if(!res.ok) throw new Error("Server tidak merespon");
                 const json = await res.json();
-                
-                // Ambil data Admin dari Sheet jika ada
                 if(json.admin && json.admin.length > 1) {
                     DATA.admin = { 
                         username: json.admin[1][0] || AKUN_ADMIN_TETAP.username, 
@@ -29,26 +27,35 @@
                         nama: json.admin[1][2] || AKUN_ADMIN_TETAP.nama 
                     };
                 }
-                DATA.siswa = (json.siswa||[]).slice(1).map(x=>({nama:x[0],nis:x[1],username:x[2],password:x[3]}));
+                DATA.siswa = (json.siswa||[]).slice(1).map(x=>({nama:x[0]||'',nis:x[1]||'',username:x[2]||'',password:x[3]||''}));
                 DATA.mapel = (json.mapel||[]).slice(1).map(x=>({nama:x[0],jam_mulai:x[1],jam_selesai:x[2]}));
                 DATA.soal = (json.soal||[]).slice(1).map(x=>({mapel:x[0],soal:x[1],a:x[2],b:x[3],c:x[4],d:x[5],e:x[6],jawaban:x[7]}));
                 DATA.hasil = (json.hasil||[]).slice(1).map(x=>({nama:x[0],nis:x[1],mapel:x[2],benar:x[3],total:x[4],nilai:x[5],waktu:x[6]}));
-                console.log("✅ Data berhasil disinkronkan");
             } catch(err) {
-                console.error("❌ Gangguan Server:", err);
-                alert("⚠️ Tidak bisa terhubung ke Google Sheets.\nMenggunakan data cadangan sementara.\nCek kembali tautan dan izin Apps Script.");
+                console.error(err);
+                alert("⚠️ Tidak bisa terhubung ke Google Sheets.\nMenggunakan data cadangan sementara.");
             }
         }
         async function kirimKeServer(aksi, data={}) {
             try {
                 await fetch(URL_SERVER+"?action="+aksi, {method:'POST', body:JSON.stringify(data)});
                 await muatDariServer();
+                return true;
             } catch(err) {
-                alert("❌ Gagal menyimpan data! Cek koneksi atau izin Apps Script.");
+                alert("❌ Gagal menyimpan data!");
+                return false;
             }
         }
     </script>
-    <style>table,th,td{border:1px solid #ddd;padding:8px}table{width:100%;border-collapse:collapse}</style>
+    <style>
+        table,th,td{border:1px solid #ddd;padding:8px}table{width:100%;border-collapse:collapse}
+        @media print {
+            body * {visibility:hidden;}
+            #area_cetak, #area_cetak * {visibility:visible;}
+            #area_cetak{position:absolute;left:0;top:0;width:100%;}
+            .btn-hide-cetak{display:none;}
+        }
+    </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <script>
@@ -56,23 +63,13 @@
         function keluar(){sessionStorage.removeItem('siswa_aktif');tampilkanHalaman('halaman_login');}
         async function prosesLogin(tipe){
             const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value.trim();
-            await muatDariServer(); // Ambil data terbaru dulu
-            
+            await muatDariServer();
             if(tipe==='admin'){
-                if(DATA.admin.username===u && DATA.admin.password===p){
-                    tampilkanHalaman('halaman_admin');
-                    muatDataAdmin();
-                    return;
-                }
-                alert("❌ Username atau Password Admin salah!\nPastikan: admin_sekolah / admin123");
+                if(DATA.admin.username===u && DATA.admin.password===p){tampilkanHalaman('halaman_admin');muatDataAdmin();return;}
+                alert("❌ Username atau Password Admin salah!");
             }else{
                 const a=DATA.siswa.find(s=>s.username===u&&s.password===p);
-                if(a){
-                    sessionStorage.setItem('siswa_aktif',JSON.stringify(a));
-                    tampilkanHalaman('halaman_siswa');
-                    muatDataSiswa();
-                    return;
-                }
+                if(a){sessionStorage.setItem('siswa_aktif',JSON.stringify(a));tampilkanHalaman('halaman_siswa');muatDataSiswa();return;}
                 alert("❌ Akun Siswa tidak ditemukan!");
             }
         }
@@ -108,12 +105,55 @@
             }).join('');
         }
         function kembaliKeDaftarMapel(){mapelTerpilih=null;muatDaftarMapelSoal();document.getElementById('daftar_soal_mapel').classList.add('hidden');}
+
+        // === FUNGSI TAMBAHAN: EDIT & CETAK ===
+        function editSiswa(i){
+            const s = DATA.siswa[i];
+            document.getElementById('nama_siswa').value = s.nama;
+            document.getElementById('nis_siswa').value = s.nis;
+            document.getElementById('user_siswa').value = s.username;
+            document.getElementById('pass_siswa').value = s.password;
+            INDEKS_EDIT_SISWA = i;
+            document.querySelector('#form_siswa button').innerText = 'Perbarui Data';
+            document.querySelector('#form_siswa button').classList.replace('bg-blue-600','bg-yellow-500');
+        }
+        async function simpanEditSiswa(){
+            // Hapus lama, simpan baru (karena kode server simpan append)
+            await kirimKeServer('hapusSiswa', {indeks:INDEKS_EDIT_SISWA});
+            await kirimKeServer('simpanSiswa', {
+                nama:document.getElementById('nama_siswa').value,
+                nis:document.getElementById('nis_siswa').value,
+                username:document.getElementById('user_siswa').value,
+                password:document.getElementById('pass_siswa').value
+            });
+            INDEKS_EDIT_SISWA = null;
+            document.querySelector('#form_siswa button').innerText = 'Simpan';
+            document.querySelector('#form_siswa button').classList.replace('bg-yellow-500','bg-blue-600');
+            alert('✅ Data siswa diperbarui!');
+            muatDataAdmin();
+        }
+        function cetakKartuSiswa(i){
+            const s = DATA.siswa[i];
+            document.getElementById('area_cetak').innerHTML = `
+                <div style="border:2px solid #333; padding:20px; max-width:300px; margin:0 auto; border-radius:10px; text-align:center;">
+                    <h3 style="font-size:18px; font-weight:bold; margin-bottom:15px;">KARTU AKSES UJIAN</h3>
+                    <hr style="margin-bottom:15px;">
+                    <p style="margin:5px 0;"><b>Nama:</b> ${s.nama}</p>
+                    <p style="margin:5px 0;"><b>NIS:</b> ${s.nis}</p>
+                    <hr style="margin:15px 0;">
+                    <p style="margin:5px 0;"><b>Username:</b> ${s.username}</p>
+                    <p style="margin:5px 0;"><b>Password:</b> ${s.password}</p>
+                    <hr style="margin:15px 0;">
+                    <p style="font-size:12px;">Gunakan data ini untuk login saat ujian</p>
+                </div>
+            `;
+            window.print();
+        }
     </script>
 
     <div id="halaman_login" class="halaman flex items-center justify-center min-h-screen p-4">
         <div class="w-full max-w-md bg-white rounded-2xl p-8 shadow">
-            <div class="text-center mb-8"><i class="fa fa-graduation-cap text-4xl text-blue-600"></i><h2 class="text-2xl font-bold mt-2">CBT SEKOLAH (Online)</h2>
-            <p class="text-sm text-gray-500 mt-1">Sinkronisasi: Google Sheets</p></div>
+            <div class="text-center mb-8"><i class="fa fa-graduation-cap text-4xl text-blue-600"></i><h2 class="text-2xl font-bold mt-2">CBT SEKOLAH (Online)</h2></div>
             <input type="text" id="username" class="w-full p-3 border rounded mb-3" placeholder="Username">
             <input type="password" id="password" class="w-full p-3 border rounded mb-4" placeholder="Password">
             <div class="grid grid-cols-2 gap-3">
@@ -148,15 +188,29 @@
 
             <div id="tab_siswa" class="tab-konten hidden">
                 <div class="bg-white p-6 rounded">
-                    <h3 class="font-semibold mb-4">Tambah Siswa</h3>
+                    <h3 class="font-semibold mb-4">Kelola Data Siswa</h3>
                     <form id="form_siswa" class="grid md:grid-cols-2 gap-3 mb-6">
-                        <input type="text" id="nama_siswa" placeholder="Nama" class="p-3 border rounded" required>
+                        <input type="text" id="nama_siswa" placeholder="Nama Lengkap" class="p-3 border rounded" required>
                         <input type="text" id="nis_siswa" placeholder="NIS" class="p-3 border rounded" required>
-                        <input type="text" id="user_siswa" placeholder="Username" class="p-3 border rounded" required>
-                        <input type="password" id="pass_siswa" placeholder="Password" class="p-3 border rounded" required>
-                        <button class="md:col-span-2 bg-blue-600 text-white py-2 rounded">Simpan</button>
+                        <input type="text" id="user_siswa" placeholder="Username Login" class="p-3 border rounded" required>
+                        <input type="text" id="pass_siswa" placeholder="Password Login" class="p-3 border rounded" required>
+                        <button type="submit" class="md:col-span-2 bg-blue-600 text-white py-2 rounded">Simpan</button>
                     </form>
-                    <table><thead><tr><th>No</th><th>Nama</th><th>NIS</th><th>Aksi</th></tr></thead><tbody id="tabel_siswa"></tbody></table>
+                    
+                    <!-- TABEL DENGAN KOLOM PASSWORD & TOMBOL EDIT/CETAK -->
+                    <table>
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th>No</th>
+                                <th>Nama</th>
+                                <th>NIS</th>
+                                <th>Username</th>
+                                <th>Password</th>
+                                <th>Aksi</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabel_siswa"></tbody>
+                    </table>
                 </div>
             </div>
 
@@ -211,6 +265,9 @@
             </div>
         </div>
 
+        <!-- AREA CETAK KARTU -->
+        <div id="area_cetak" class="hidden"></div>
+
         <script>
             function tabAdmin(nama){document.querySelectorAll('.tab-konten').forEach(e=>e.classList.add('hidden'));document.querySelectorAll('.tab-btn').forEach(e=>e.classList.replace('bg-blue-600','bg-gray-200'));document.getElementById('tab_'+nama).classList.remove('hidden');event.target.classList.replace('bg-gray-200','bg-blue-600');}
             async function muatDataAdmin(){
@@ -220,16 +277,39 @@
                 document.getElementById('jml_soal').innerText=DATA.soal.length;
                 document.getElementById('jml_hasil').innerText=DATA.hasil.length;
 
-                document.getElementById('tabel_siswa').innerHTML=DATA.siswa.map((s,i)=>`<tr><td>${i+1}</td><td>${s.nama}</td><td>${s.nis}</td><td><button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusSiswa',{indeks:i}).then(muatDataAdmin);}" class="text-red-500"><i class="fa fa-trash"></i></button></td></tr>`).join('');
+                // TABEL SISWA LENGKAP DENGAN PASSWORD & TOMBOL
+                document.getElementById('tabel_siswa').innerHTML=DATA.siswa.map((s,i)=>`<tr>
+                    <td>${i+1}</td>
+                    <td>${s.nama}</td>
+                    <td>${s.nis}</td>
+                    <td>${s.username}</td>
+                    <td><b>${s.password}</b></td>
+                    <td class="text-center">
+                        <button onclick="editSiswa(${i})" class="text-yellow-500 mx-1" title="Edit"><i class="fa fa-pencil"></i></button>
+                        <button onclick="cetakKartuSiswa(${i})" class="text-blue-500 mx-1" title="Cetak Kartu"><i class="fa fa-id-card"></i></button>
+                        <button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusSiswa',{indeks:i}).then(muatDataAdmin);}" class="text-red-500 mx-1" title="Hapus"><i class="fa fa-trash"></i></button>
+                    </td>
+                </tr>`).join('');
+
                 document.getElementById('pilih_mapel').innerHTML=`<option value="">Pilih Mapel</option>`+DATA.mapel.map(m=>`<option value="${m.nama}">${m.nama}</option>`).join('');
                 document.getElementById('daftar_mapel').innerHTML=DATA.mapel.map((m,i)=>`<div class="p-3 bg-gray-50 rounded flex justify-between"><div><b>${m.nama}</b><br><small>${m.jam_mulai.replace('T',' ')} - ${m.jam_selesai.replace('T',' ')}</small></div><button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusMapel',{indeks:i}).then(muatDataAdmin);}" class="text-red-500"><i class="fa fa-trash"></i></button></div>`).join('');
                 document.getElementById('tabel_hasil').innerHTML=DATA.hasil.map(h=>`<tr><td>${h.nama}</td><td>${h.mapel}</td><td>${h.benar}/${h.total}</td><td class="font-bold">${h.nilai}</td></tr>`).join('');
                 muatDaftarMapelSoal();
             }
 
-            document.getElementById('form_siswa').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});alert('Tersimpan ke Server!');e.target.reset();muatDataAdmin();});
-            document.getElementById('form_mapel').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});alert('Tersimpan ke Server!');e.target.reset();muatDataAdmin();});
-            document.getElementById('form_soal').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSoal',{mapel:document.getElementById('pilih_mapel').value,soal:document.getElementById('teks_soal').value,a:document.getElementById('opsi_a').value,b:document.getElementById('opsi_b').value,c:document.getElementById('opsi_c').value,d:document.getElementById('opsi_d').value,e:document.getElementById('opsi_e').value,jawaban:document.getElementById('kunci_jawaban').value});alert('Tersimpan ke Server!');e.target.reset();muatDataAdmin();});
+            document.getElementById('form_siswa').addEventListener('submit',async e=>{
+                e.preventDefault();
+                if(INDEKS_EDIT_SISWA !== null){
+                    await simpanEditSiswa();
+                    return;
+                }
+                await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});
+                alert('✅ Data siswa tersimpan!');
+                e.target.reset();
+                muatDataAdmin();
+            });
+            document.getElementById('form_mapel').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});alert('✅ Tersimpan!');e.target.reset();muatDataAdmin();});
+            document.getElementById('form_soal').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSoal',{mapel:document.getElementById('pilih_mapel').value,soal:document.getElementById('teks_soal').value,a:document.getElementById('opsi_a').value,b:document.getElementById('opsi_b').value,c:document.getElementById('opsi_c').value,d:document.getElementById('opsi_d').value,e:document.getElementById('opsi_e').value,jawaban:document.getElementById('kunci_jawaban').value});alert('✅ Tersimpan!');e.target.reset();muatDataAdmin();});
         </script>
     </div>
 
