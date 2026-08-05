@@ -9,47 +9,44 @@
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         tailwind.config={theme:{extend:{colors:{primary:'#165DFF',secondary:'#36CBCB'}}}};
-        // === GANTI BAGIAN INI SAJA DI AWAL KODE index.html ===
-const URL_SERVER = "https://script.google.com/macros/s/AKfycbyuUllxcOr7GqntPGYW5vydZ8LRbB-cFtpLSBCXANNAM4Uxkch0ctwlkdvCF84nOE28/exec"; // <<--- WAJIB GANTI DENGAN TAUTAN TERBARU
-let DATA = {
-  admin: { username: 'admin_sekolah', password: 'admin123', nama: 'Operator Sekolah' },
-  siswa: [], mapel: [], soal: [], hasil: []
-};
+        // === GANTI DENGAN TAUTAN TERBARU DARI APPS SCRIPT ===
+        const URL_SERVER = "https://script.google.com/macros/s/AKfycby.../exec"; 
+        // Akun Admin Cadangan (selalu bisa masuk)
+        const AKUN_ADMIN_TETAP = {username:'admin_sekolah',password:'admin123',nama:'Operator Sekolah'};
+        let DATA = {admin:AKUN_ADMIN_TETAP, siswa:[], mapel:[], soal:[], hasil:[]};
 
-async function muatDariServer() {
-  try {
-    const res = await fetch(URL_SERVER + "?action=ambilSemua");
-    const json = await res.json();
-    
-    // Proses data Admin
-    if(json.admin && json.admin.length > 0) {
-      DATA.admin = { username: json.admin[0][0], password: json.admin[0][1], nama: json.admin[0][2] };
-    }
-    // Proses data lainnya
-    DATA.siswa = json.siswa.map(x => ({nama:x[0],nis:x[1],username:x[2],password:x[3]}));
-    DATA.mapel = json.mapel.map(x => ({nama:x[0],jam_mulai:x[1],jam_selesai:x[2]}));
-    DATA.soal = json.soal.map(x => ({mapel:x[0],soal:x[1],a:x[2],b:x[3],c:x[4],d:x[5],e:x[6],jawaban:x[7]}));
-    DATA.hasil = json.hasil.map(x => ({nama:x[0],nis:x[1],mapel:x[2],benar:x[3],total:x[4],nilai:x[5],waktu:x[6]}));
-    console.log("Data berhasil dimuat");
-  } catch(err) {
-    console.error("Gagal ambil data:", err);
-    alert("⚠️ Gagal terhubung ke server. Cek kembali tautan Apps Script.");
-  }
-}
-
-async function kirimKeServer(aksi, data={}) {
-  try {
-    await fetch(URL_SERVER + "?action=" + aksi, {
-      method: 'POST',
-      headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify(data)
-    });
-    await muatDariServer();
-  } catch(err) {
-    console.error("Gagal kirim data:", err);
-    alert("⚠️ Gagal menyimpan data.");
-  }
-}
+        async function muatDariServer() {
+            try {
+                const res = await fetch(URL_SERVER+"?action=ambilSemua");
+                if(!res.ok) throw new Error("Server tidak merespon");
+                const json = await res.json();
+                
+                // Ambil data Admin dari Sheet jika ada
+                if(json.admin && json.admin.length > 1) {
+                    DATA.admin = { 
+                        username: json.admin[1][0] || AKUN_ADMIN_TETAP.username, 
+                        password: json.admin[1][1] || AKUN_ADMIN_TETAP.password, 
+                        nama: json.admin[1][2] || AKUN_ADMIN_TETAP.nama 
+                    };
+                }
+                DATA.siswa = (json.siswa||[]).slice(1).map(x=>({nama:x[0],nis:x[1],username:x[2],password:x[3]}));
+                DATA.mapel = (json.mapel||[]).slice(1).map(x=>({nama:x[0],jam_mulai:x[1],jam_selesai:x[2]}));
+                DATA.soal = (json.soal||[]).slice(1).map(x=>({mapel:x[0],soal:x[1],a:x[2],b:x[3],c:x[4],d:x[5],e:x[6],jawaban:x[7]}));
+                DATA.hasil = (json.hasil||[]).slice(1).map(x=>({nama:x[0],nis:x[1],mapel:x[2],benar:x[3],total:x[4],nilai:x[5],waktu:x[6]}));
+                console.log("✅ Data berhasil disinkronkan");
+            } catch(err) {
+                console.error("❌ Gangguan Server:", err);
+                alert("⚠️ Tidak bisa terhubung ke Google Sheets.\nMenggunakan data cadangan sementara.\nCek kembali tautan dan izin Apps Script.");
+            }
+        }
+        async function kirimKeServer(aksi, data={}) {
+            try {
+                await fetch(URL_SERVER+"?action="+aksi, {method:'POST', body:JSON.stringify(data)});
+                await muatDariServer();
+            } catch(err) {
+                alert("❌ Gagal menyimpan data! Cek koneksi atau izin Apps Script.");
+            }
+        }
     </script>
     <style>table,th,td{border:1px solid #ddd;padding:8px}table{width:100%;border-collapse:collapse}</style>
 </head>
@@ -59,14 +56,24 @@ async function kirimKeServer(aksi, data={}) {
         function keluar(){sessionStorage.removeItem('siswa_aktif');tampilkanHalaman('halaman_login');}
         async function prosesLogin(tipe){
             const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value.trim();
-            await muatDariServer();
+            await muatDariServer(); // Ambil data terbaru dulu
+            
             if(tipe==='admin'){
-                if(DATA.admin.username===u && DATA.admin.password===p){tampilkanHalaman('halaman_admin');muatDataAdmin();return;}
-                alert('Salah!');
+                if(DATA.admin.username===u && DATA.admin.password===p){
+                    tampilkanHalaman('halaman_admin');
+                    muatDataAdmin();
+                    return;
+                }
+                alert("❌ Username atau Password Admin salah!\nPastikan: admin_sekolah / admin123");
             }else{
                 const a=DATA.siswa.find(s=>s.username===u&&s.password===p);
-                if(a){sessionStorage.setItem('siswa_aktif',JSON.stringify(a));tampilkanHalaman('halaman_siswa');muatDataSiswa();return;}
-                alert('Akun tidak ditemukan!');
+                if(a){
+                    sessionStorage.setItem('siswa_aktif',JSON.stringify(a));
+                    tampilkanHalaman('halaman_siswa');
+                    muatDataSiswa();
+                    return;
+                }
+                alert("❌ Akun Siswa tidak ditemukan!");
             }
         }
         function cekWaktuUjian(mapel){
@@ -80,14 +87,14 @@ async function kirimKeServer(aksi, data={}) {
             const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async evt=>{
                 const wb=XLSX.read(evt.target.result,{type:'binary'});const arr=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
                 const soalBaru=[];for(let i=1;i<arr.length;i++){const b=arr[i];if(!b[0]||!b[1])continue;soalBaru.push({mapel:String(b[0]).trim(),soal:String(b[1]).trim(),a:String(b[2]||''),b:String(b[3]||''),c:String(b[4]||''),d:String(b[5]||''),e:String(b[6]||''),jawaban:String(b[7]||'').toUpperCase()});}
-                await kirimKeServer('simpanBanyakSoal',soalBaru);alert(`Berhasil ${soalBaru.length} soal!`);muatDataAdmin();
+                await kirimKeServer('simpanBanyakSoal',soalBaru);alert(`Berhasil memuat ${soalBaru.length} soal!`);muatDataAdmin();
             };r.readAsBinaryString(f);
         }
 
         let mapelTerpilih=null;
         function muatDaftarMapelSoal(){
             const el=document.getElementById('daftar_mapel_soal');
-            el.innerHTML=DATA.mapel.length?'Belum ada Mapel':DATA.mapel.map(m=>{
+            el.innerHTML=DATA.mapel.length?'<p class="text-gray-500">Belum ada mata pelajaran</p>':DATA.mapel.map(m=>{
                 const jml=DATA.soal.filter(s=>s.mapel.trim().toLowerCase()===m.nama.trim().toLowerCase()).length;
                 return `<button onclick="lihatSoalMapel('${m.nama}')" class="w-full p-3 mb-2 border rounded flex justify-between ${mapelTerpilih===m.nama?'border-blue-500 bg-blue-50':''}"><span>${m.nama}</span><span>${jml} Soal</span></button>`;
             }).join('');
@@ -95,9 +102,9 @@ async function kirimKeServer(aksi, data={}) {
         function lihatSoalMapel(nama){
             mapelTerpilih=nama;muatDaftarMapelSoal();document.getElementById('daftar_soal_mapel').classList.remove('hidden');document.getElementById('nama_mapel_dilihat').innerText=nama;
             const d=DATA.soal.filter(s=>s.mapel.trim().toLowerCase()===nama.trim().toLowerCase());
-            document.getElementById('isi_daftar_soal').innerHTML=d.map((s,i)=>{
+            document.getElementById('isi_daftar_soal').innerHTML=d.length?'<p class="text-gray-500">Belum ada soal</p>':d.map((s,i)=>{
                 const idx=DATA.soal.findIndex(x=>x===s);
-                return `<div class="border-b pb-4 mb-4 relative"><button onclick="if(confirm('Yakin?')){kirimKeServer('hapusSoal',{indeks:idx}).then(()=>lihatSoalMapel('${nama}'));}" class="absolute top-0 right-0 text-red-500"><i class="fa fa-trash"></i> Hapus</button><p class="pr-16">${i+1}. ${s.soal}</p><div class="pl-4 text-sm"><p>A. ${s.a}</p><p>B. ${s.b}</p><p>C. ${s.c}</p><p>D. ${s.d}</p><p>E. ${s.e}</p><p class="text-green-600">Jawaban: ${s.jawaban}</p></div></div>`;
+                return `<div class="border-b pb-4 mb-4 relative"><button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusSoal',{indeks:idx}).then(()=>lihatSoalMapel('${nama}'));}" class="absolute top-0 right-0 text-red-500"><i class="fa fa-trash"></i> Hapus</button><p class="pr-16">${i+1}. ${s.soal}</p><div class="pl-4 text-sm"><p>A. ${s.a}</p><p>B. ${s.b}</p><p>C. ${s.c}</p><p>D. ${s.d}</p><p>E. ${s.e}</p><p class="text-green-600">Jawaban: ${s.jawaban}</p></div></div>`;
             }).join('');
         }
         function kembaliKeDaftarMapel(){mapelTerpilih=null;muatDaftarMapelSoal();document.getElementById('daftar_soal_mapel').classList.add('hidden');}
@@ -105,7 +112,8 @@ async function kirimKeServer(aksi, data={}) {
 
     <div id="halaman_login" class="halaman flex items-center justify-center min-h-screen p-4">
         <div class="w-full max-w-md bg-white rounded-2xl p-8 shadow">
-            <div class="text-center mb-8"><i class="fa fa-graduation-cap text-4xl text-blue-600"></i><h2 class="text-2xl font-bold mt-2">CBT SEKOLAH (Online)</h2></div>
+            <div class="text-center mb-8"><i class="fa fa-graduation-cap text-4xl text-blue-600"></i><h2 class="text-2xl font-bold mt-2">CBT SEKOLAH (Online)</h2>
+            <p class="text-sm text-gray-500 mt-1">Sinkronisasi: Google Sheets</p></div>
             <input type="text" id="username" class="w-full p-3 border rounded mb-3" placeholder="Username">
             <input type="password" id="password" class="w-full p-3 border rounded mb-4" placeholder="Password">
             <div class="grid grid-cols-2 gap-3">
@@ -212,16 +220,16 @@ async function kirimKeServer(aksi, data={}) {
                 document.getElementById('jml_soal').innerText=DATA.soal.length;
                 document.getElementById('jml_hasil').innerText=DATA.hasil.length;
 
-                document.getElementById('tabel_siswa').innerHTML=DATA.siswa.map((s,i)=>`<tr><td>${i+1}</td><td>${s.nama}</td><td>${s.nis}</td><td><button onclick="if(confirm('Yakin?')){kirimKeServer('hapusSiswa',{indeks:DATA.siswa.findIndex(x=>x===s)}).then(muatDataAdmin);}" class="text-red-500"><i class="fa fa-trash"></i></button></td></tr>`).join('');
+                document.getElementById('tabel_siswa').innerHTML=DATA.siswa.map((s,i)=>`<tr><td>${i+1}</td><td>${s.nama}</td><td>${s.nis}</td><td><button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusSiswa',{indeks:i}).then(muatDataAdmin);}" class="text-red-500"><i class="fa fa-trash"></i></button></td></tr>`).join('');
                 document.getElementById('pilih_mapel').innerHTML=`<option value="">Pilih Mapel</option>`+DATA.mapel.map(m=>`<option value="${m.nama}">${m.nama}</option>`).join('');
-                document.getElementById('daftar_mapel').innerHTML=DATA.mapel.map((m,i)=>`<div class="p-3 bg-gray-50 rounded flex justify-between"><div><b>${m.nama}</b><br><small>${m.jam_mulai.replace('T',' ')} - ${m.jam_selesai.replace('T',' ')}</small></div><button onclick="if(confirm('Yakin?')){kirimKeServer('hapusMapel',{indeks:i}).then(muatDataAdmin);}" class="text-red-500"><i class="fa fa-trash"></i></button></div>`).join('');
+                document.getElementById('daftar_mapel').innerHTML=DATA.mapel.map((m,i)=>`<div class="p-3 bg-gray-50 rounded flex justify-between"><div><b>${m.nama}</b><br><small>${m.jam_mulai.replace('T',' ')} - ${m.jam_selesai.replace('T',' ')}</small></div><button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusMapel',{indeks:i}).then(muatDataAdmin);}" class="text-red-500"><i class="fa fa-trash"></i></button></div>`).join('');
                 document.getElementById('tabel_hasil').innerHTML=DATA.hasil.map(h=>`<tr><td>${h.nama}</td><td>${h.mapel}</td><td>${h.benar}/${h.total}</td><td class="font-bold">${h.nilai}</td></tr>`).join('');
                 muatDaftarMapelSoal();
             }
 
-            document.getElementById('form_siswa').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});alert('Tersimpan!');e.target.reset();muatDataAdmin();});
-            document.getElementById('form_mapel').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});alert('Tersimpan!');e.target.reset();muatDataAdmin();});
-            document.getElementById('form_soal').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSoal',{mapel:document.getElementById('pilih_mapel').value,soal:document.getElementById('teks_soal').value,a:document.getElementById('opsi_a').value,b:document.getElementById('opsi_b').value,c:document.getElementById('opsi_c').value,d:document.getElementById('opsi_d').value,e:document.getElementById('opsi_e').value,jawaban:document.getElementById('kunci_jawaban').value});alert('Tersimpan!');e.target.reset();muatDataAdmin();});
+            document.getElementById('form_siswa').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});alert('Tersimpan ke Server!');e.target.reset();muatDataAdmin();});
+            document.getElementById('form_mapel').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});alert('Tersimpan ke Server!');e.target.reset();muatDataAdmin();});
+            document.getElementById('form_soal').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSoal',{mapel:document.getElementById('pilih_mapel').value,soal:document.getElementById('teks_soal').value,a:document.getElementById('opsi_a').value,b:document.getElementById('opsi_b').value,c:document.getElementById('opsi_c').value,d:document.getElementById('opsi_d').value,e:document.getElementById('opsi_e').value,jawaban:document.getElementById('kunci_jawaban').value});alert('Tersimpan ke Server!');e.target.reset();muatDataAdmin();});
         </script>
     </div>
 
@@ -255,20 +263,20 @@ async function kirimKeServer(aksi, data={}) {
             }
             function kembaliPilihMapel(){document.getElementById('pilih_mapel_siswa').classList.remove('hidden');document.getElementById('halaman_ujian').classList.add('hidden');}
             async function mulaiUjian(nama){
-                if(!cekWaktuUjian(nama))return alert('Waktu tidak sesuai!');
+                if(!cekWaktuUjian(nama))return alert('Waktu ujian belum dimulai atau sudah berakhir!');
                 sessionStorage.setItem('mapel_aktif',nama);
                 document.getElementById('pilih_mapel_siswa').classList.add('hidden');document.getElementById('halaman_ujian').classList.remove('hidden');document.getElementById('nama_mapel_ujian').innerText=nama;
                 const soal=DATA.soal.filter(s=>s.mapel.trim().toLowerCase()===nama.trim().toLowerCase());
                 const dm=DATA.mapel.find(m=>m.nama.trim().toLowerCase()===nama.trim().toLowerCase());
                 document.getElementById('info_waktu').innerHTML=`<i class="fa fa-clock-o"></i> ${dm.jam_mulai.replace('T',' ')} s.d ${dm.jam_selesai.replace('T',' ')}`;
-                if(soal.length===0){document.getElementById('wadah_soal').innerHTML='<p class="text-center text-gray-500">Belum ada soal</p>';return;}
+                if(soal.length===0){document.getElementById('wadah_soal').innerHTML='<p class="text-center text-gray-500">Belum ada soal untuk mata pelajaran ini</p>';return;}
                 document.getElementById('btn_kumpul').classList.remove('hidden');
                 document.getElementById('wadah_soal').innerHTML=soal.map((s,i)=>`<div class="border-b pb-4 mb-4"><p class="font-medium mb-2">${i+1}. ${s.soal}</p><div class="pl-4 space-y-1"><label class="flex items-center gap-2"><input type="radio" name="jwb${i}" value="A"> A. ${s.a}</label><label class="flex items-center gap-2"><input type="radio" name="jwb${i}" value="B"> B. ${s.b}</label><label class="flex items-center gap-2"><input type="radio" name="jwb${i}" value="C"> C. ${s.c}</label><label class="flex items-center gap-2"><input type="radio" name="jwb${i}" value="D"> D. ${s.d}</label><label class="flex items-center gap-2"><input type="radio" name="jwb${i}" value="E"> E. ${s.e}</label></div></div>`).join('');
                 document.getElementById('btn_kumpul').onclick=async ()=>{
                     let benar=0;soal.forEach((s,i)=>{const p=document.querySelector(`input[name="jwb${i}"]:checked`);if(p&&p.value===s.jawaban)benar++;});
                     const nilai=Math.round((benar/soal.length)*100);const siswa=JSON.parse(sessionStorage.siswa_aktif);
                     await kirimKeServer('simpanHasil',{nama:siswa.nama,nis:siswa.nis,mapel:nama,benar:benar,total:soal.length,nilai:nilai,waktu:new Date().toLocaleString()});
-                    alert(`Selesai!\nBenar: ${benar}/${soal.length}\nNilai: ${nilai}`);keluar();
+                    alert(`Ujian Selesai!\nBenar: ${benar}/${soal.length}\nNilai: ${nilai}`);keluar();
                 };
             }
         </script>
