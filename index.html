@@ -48,14 +48,25 @@
         }
     </script>
     <style>
-        table,th,td{border:1px solid #ddd;padding:8px}table{width:100%;border-collapse:collapse}
-        @media print {
-            body * {visibility:hidden;}
-            #area_cetak, #area_cetak * {visibility:visible;}
-            #area_cetak{position:absolute;left:0;top:0;width:100%;}
-            .btn-hide-cetak{display:none;}
+    table,th,td{border:1px solid #ddd;padding:8px}table{width:100%;border-collapse:collapse}
+    /* === PERBAIKAN MODE CETAK === */
+    @media print {
+        body * { visibility: hidden; }
+        #area_cetak, #area_cetak * { 
+            visibility: visible !important; 
+            color: black !important;
         }
-    </style>
+        #area_cetak {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+        .btn-hide-cetak, button, nav, header { display: none !important; }
+    }
+</style>
 </head>
 <body class="bg-gray-50 min-h-screen">
     <script>
@@ -133,22 +144,27 @@
             muatDataAdmin();
         }
         function cetakKartuSiswa(i){
-            const s = DATA.siswa[i];
-            document.getElementById('area_cetak').innerHTML = `
-                <div style="border:2px solid #333; padding:20px; max-width:300px; margin:0 auto; border-radius:10px; text-align:center;">
-                    <h3 style="font-size:18px; font-weight:bold; margin-bottom:15px;">KARTU AKSES UJIAN</h3>
-                    <hr style="margin-bottom:15px;">
-                    <p style="margin:5px 0;"><b>Nama:</b> ${s.nama}</p>
-                    <p style="margin:5px 0;"><b>NIS:</b> ${s.nis}</p>
-                    <hr style="margin:15px 0;">
-                    <p style="margin:5px 0;"><b>Username:</b> ${s.username}</p>
-                    <p style="margin:5px 0;"><b>Password:</b> ${s.password}</p>
-                    <hr style="margin:15px 0;">
-                    <p style="font-size:12px;">Gunakan data ini untuk login saat ujian</p>
-                </div>
-            `;
-            window.print();
-        }
+    const s = DATA.siswa[i];
+    // Pastikan data terbaca benar
+    console.log("Data dicetak:", s);
+    document.getElementById('area_cetak').innerHTML = `
+    <div style="width: 260px; margin: 20px auto; padding: 20px; border: 2px solid #222; border-radius: 8px; font-family: Arial, sans-serif;">
+        <h3 style="text-align: center; font-size: 17px; font-weight: bold; margin: 0 0 15px 0;">KARTU AKSES UJIAN</h3>
+        <hr style="border: 1px solid #aaa; margin: 10px 0;">
+        
+        <p style="font-size: 14px; margin: 6px 0;"><b>Nama Lengkap:</b><br> ${s.nama || '-'}</p>
+        <p style="font-size: 14px; margin: 6px 0;"><b>NIS:</b><br> ${s.nis || '-'}</p>
+        
+        <hr style="border: 1px solid #aaa; margin: 15px 0;">
+        <p style="font-size: 14px; margin: 6px 0;"><b>Username:</b><br> ${s.username || '-'}</p>
+        <p style="font-size: 14px; margin: 6px 0;"><b>Password:</b><br> ${s.password || '-'}</p>
+        
+        <hr style="border: 1px solid #aaa; margin: 15px 0;">
+        <p style="font-size: 11px; text-align: center; color: #333;">Simpan kartu ini untuk login saat ujian</p>
+    </div>`;
+    // Langsung buka jendela cetak
+    setTimeout(() => window.print(), 300);
+}
     </script>
 
     <div id="halaman_login" class="halaman flex items-center justify-center min-h-screen p-4">
