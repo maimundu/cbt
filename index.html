@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBT Sekolah - Sistem Ujian</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {background: #f5f7fa; min-height: 100vh;}
+        .card {border: none; box-shadow: 0 2px 10px rgba(0,0,0,0.1);}
+        .d-none {display: none !important;}
+        .nav-link.active {background: #0d6efd; color: white !important; border-radius: 5px;}
+        .opsi {padding: 10px; margin: 5px 0; border: 1px solid #ddd; border-radius: 5px; cursor: pointer;}
+        .opsi:hover {background: #e9ecef;}
+        .opsi.terpilih {background: #0d6efd; color: white; border-color: #0d6efd;}
+    </style>
+</head>
+<body>
+
+<!-- HALAMAN LOGIN -->
+<div id="halamanLogin" class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body p-4">
+                    <h3 class="text-center mb-4">Masuk CBT Sekolah</h3>
+                    <div id="pesanError" class="alert alert-danger d-none"></div>
+                    <form id="formLogin">
+                        <div class="mb-3">
+                            <label>Username</label>
+                            <input type="text" class="form-control" id="user" required>
+                        </div>
+                        <div class="mb-3">
+                            <label>Kata Sandi</label>
+                            <input type="password" class="form-control" id="pass" required>
+                        </div>
+                        <button class="btn btn-primary w-100">Masuk</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- HALAMAN UTAMA SETELAH LOGIN -->
+<div id="halamanUtama" class="d-none">
+    <nav class="navbar navbar-dark bg-primary">
+        <div class="container d-flex justify-content-between">
+            <span class="navbar-brand">CBT Sekolah | <span id="namaPengguna"></span> (<span id="levelPengguna"></span>)</span>
+            <button class="btn btn-outline-light btn-sm" onclick="keluar()">Keluar</button>
+        </div>
+    </nav>
+    <div class="container mt-4">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="list-group">
+                    <a class="list-group-item list-group-item-action menu-link active" data-target="beranda">Beranda</a>
+                    <a class="list-group-item list-group-item-action menu-link" data-target="pengguna" id="menuPengguna">Kelola Pengguna</a>
+                    <a class="list-group-item list-group-item-action menu-link" data-target="soal">Kelola Soal</a>
+                    <a class="list-group-item list-group-item-action menu-link" data-target="ujian">Ujian</a>
+                    <a class="list-group-item list-group-item-action menu-link" data-target="hasil">Hasil Ujian</a>
+                </div>
+            </div>
+            <div class="col-md-9">
+                <div id="kontenBeranda" class="konten">
+                    <h4>Selamat Datang</h4>
+                    <p>Gunakan menu di samping untuk mengelola sistem atau mengikuti ujian.</p>
+                </div>
+                <div id="kontenPengguna" class="konten d-none">
+                    <h4>Kelola Pengguna</h4>
+                    <button class="btn btn-primary btn-sm mb-3" onclick="tambahFormPengguna()">Tambah Pengguna</button>
+                    <div id="formTambahPengguna" class="card p-3 mb-3 d-none">
+                        <div class="row g-2">
+                            <div class="col"><input type="text" class="form-control" id="pnama" placeholder="Nama Lengkap"></div>
+                            <div class="col"><input type="text" class="form-control" id="puser" placeholder="Username"></div>
+                            <div class="col"><input type="password" class="form-control" id="ppass" placeholder="Kata Sandi"></div>
+                            <div class="col"><select class="form-select" id="plevel"><option value="admin">Admin</option><option value="guru">Guru</option><option value="siswa">Siswa</option></select></div>
+                            <div class="col-auto"><button class="btn btn-success" onclick="simpanPengguna()">Simpan</button></div>
+                        </div>
+                    </div>
+                    <table class="table table-striped">
+                        <thead><tr><th>Nama</th><th>Username</th><th>Level</th><th>Aksi</th></tr></thead>
+                        <tbody id="daftarPengguna"></tbody>
+                    </table>
+                </div>
+                <div id="kontenSoal" class="konten d-none">
+                    <h4>Kelola Soal</h4>
+                    <button class="btn btn-primary btn-sm mb-3" onclick="tambahFormSoal()">Tambah Soal</button>
+                    <div id="formTambahSoal" class="card p-3 mb-3 d-none">
+                        <textarea class="form-control mb-2" id="soalPertanyaan" placeholder="Pertanyaan" rows="2"></textarea>
+                        <div class="row g-2 mb-2">
+                            <div class="col"><input type="text" class="form-control" id="opsiA" placeholder="Opsi A"></div>
+                            <div class="col"><input type="text" class="form-control" id="opsiB" placeholder="Opsi B"></div>
+                        </div>
+                        <div class="row g-2 mb-2">
+                            <div class="col"><input type="text" class="form-control" id="opsiC" placeholder="Opsi C"></div>
+                            <div class="col"><input type="text" class="form-control" id="opsiD" placeholder="Opsi D"></div>
+                        </div>
+                        <select class="form-select mb-2" id="kunciJawaban"><option value="A">Jawaban Benar: A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option></select>
+                        <button class="btn btn-success" onclick="simpanSoal()">Simpan Soal</button>
+                    </div>
+                    <table class="table table-striped">
+                        <thead><tr><th>No</th><th>Pertanyaan</th><th>Jawaban</th><th>Aksi</th></tr></thead>
+                        <tbody id="daftarSoal"></tbody>
+                    </table>
+                </div>
+                <div id="kontenUjian" class="konten d-none">
+                    <h4>Daftar Ujian</h4>
+                    <div id="daftarUjian"></div>
+                </div>
+                <div id="kontenHasil" class="konten d-none">
+                    <h4>Hasil Ujian</h4>
+                    <div id="daftarHasil"></div>
+                </div>
+                <div id="kontenKerjakan" class="konten d-none">
+                    <h4>Kerjakan Ujian</h4>
+                    <div id="soalUjian"></div>
+                    <button class="btn btn-primary mt-3" onclick="kumpulkanUjian()">Kumpulkan Jawaban</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// === DATABASE BAWAAAN BROWSER ===
+let db;
+const akunDefault = {nama:"Administrator", username:"admin", password:"admin123", level:"admin"};
+
+function bukaDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open("CBT_Sekolah", 1);
+        req.onupgradeneeded = e => {
+            db = e.target.result;
+            if(!db.objectStoreNames.contains("pengguna")) {
+                const os = db.createObjectStore("pengguna", {keyPath:"id", autoIncrement:true});
+                os.createIndex("username", "username", {unique:true});
+                os.add(akunDefault);
+            }
+            if(!db.objectStoreNames.contains("soal")) db.createObjectStore("soal", {keyPath:"id", autoIncrement:true});
+            if(!db.objectStoreNames.contains("ujian")) db.createObjectStore("ujian", {keyPath:"id", autoIncrement:true});
+            if(!db.objectStoreNames.contains("jawaban")) db.createObjectStore("jawaban", {keyPath:"id", autoIncrement:true});
+        };
+        req.onsuccess = e => {db = e.target.result; resolve();};
+        req.onerror = reject;
+    });
+}
+
+// === FUNGSI BANTU: CRUD ===
+function ambilData(tabel) {
+    return new Promise(res => {
+        const tx = db.transaction(tabel);
+        const os = tx.objectStore(tabel);
+        res(os.getAll());
+    });
+}
+function simpanData(tabel, data) {
+    return new Promise(res => {
+        const tx = db.transaction(tabel, "readwrite");
+        tx.objectStore(tabel).add(data);
+        tx.oncomplete = res;
+    });
+}
+function hapusData(tabel, id) {
+    return new Promise(res => {
+        const tx = db.transaction(tabel, "readwrite");
+        tx.objectStore(tabel).delete(id);
+        tx.oncomplete = res;
+    });
+}
+
+// === LOGIN ===
+let userAktif = null;
+document.getElementById("formLogin").addEventListener("submit", async e => {
+    e.preventDefault();
+    const u = document.getElementById("user").value;
+    const p = document.getElementById("pass").value;
+    const pengguna = await ambilData("pengguna");
+    const ditemukan = pengguna.find(x => x.username === u && x.password === p);
+    if(ditemukan) {
+        userAktif = ditemukan;
+        tampilkanHalamanUtama();
+    } else {
+        const el = document.getElementById("pesanError");
+        el.textContent = "Username atau kata sandi salah!";
+        el.classList.remove("d-none");
+    }
+});
+
+function tampilkanHalamanUtama() {
+    document.getElementById("halamanLogin").classList.add("d-none");
+    document.getElementById("halamanUtama").classList.remove("d-none");
+    document.getElementById("namaPengguna").textContent = userAktif.nama;
+    document.getElementById("levelPengguna").textContent = userAktif.level.toUpperCase();
+    if(userAktif.level !== "admin") document.getElementById("menuPengguna").classList.add("d-none");
+    muatDaftarPengguna(); muatDaftarSoal(); muatDaftarUjian();
+}
+
+function keluar() {
+    userAktif = null;
+    location.reload();
+}
+
+// === MENU NAVIGASI ===
+document.querySelectorAll(".menu-link").forEach(a => {
+    a.addEventListener("click", e => {
+        e.preventDefault();
+        document.querySelectorAll(".menu-link").forEach(x => x.classList.remove("active"));
+        document.querySelectorAll(".konten").forEach(x => x.classList.add("d-none"));
+        a.classList.add("active");
+        document.getElementById(`konten${a.dataset.target[0].toUpperCase()+a.dataset.target.slice(1)}`).classList.remove("d-none");
+    });
+});
+
+// === KELOLA PENGGUNA ===
+function tambahFormPengguna() {
+    document.getElementById("formTambahPengguna").classList.toggle("d-none");
+}
+async function simpanPengguna() {
+    const data = {
+        nama: document.getElementById("pnama").value,
+        username: document.getElementById("puser").value,
+        password: document.getElementById("ppass").value,
+        level: document.getElementById("plevel").value
+    };
+    await simpanData("pengguna", data);
+    alert("Pengguna ditambahkan");
+    muatDaftarPengguna();
+}
+async function muatDaftarPengguna() {
+    const list = await ambilData("pengguna");
+    let html = "";
+    list.forEach(x => {
+        html += `<tr><td>${x.nama}</td><td>${x.username}</td><td>${x.level}</td><td><button class="btn btn-danger btn-sm" onclick="hapusPengguna(${x.id})">Hapus</button></td></tr>`;
+    });
+    document.getElementById("daftarPengguna").innerHTML = html;
+}
+async function hapusPengguna(id) {
+    if(confirm("Yakin hapus?")) {await hapusData("pengguna",id); muatDaftarPengguna();}
+}
+
+// === KELOLA SOAL ===
+function tambahFormSoal() {
+    document.getElementById("formTambahSoal").classList.toggle("d-none");
+}
+async function simpanSoal() {
+    const data = {
+        pertanyaan: document.getElementById("soalPertanyaan").value,
+        A: document.getElementById("opsiA").value,
+        B: document.getElementById("opsiB").value,
+        C: document.getElementById("opsiC").value,
+        D: document.getElementById("opsiD").value,
+        jawaban: document.getElementById("kunciJawaban").value
+    };
+    await simpanData("soal", data);
+    alert("Soal disimpan");
+    muatDaftarSoal();
+}
+async function muatDaftarSoal() {
+    const list = await ambilData("soal");
+    let html = "";
+    list.forEach((x,i) => {
+        html += `<tr><td>${i+1}</td><td>${x.pertanyaan.substring(0,50)}...</td><td>${x.jawaban}</td><td><button class="btn btn-danger btn-sm" onclick="hapusSoal(${x.id})">Hapus</button></td></tr>`;
+    });
+    document.getElementById("daftarSoal").innerHTML = html;
+}
+async function hapusSoal(id) {
+    if(confirm("Yakin hapus?")) {await hapusData("soal",id); muatDaftarSoal();}
+}
+
+// === UJIAN ===
+async function muatDaftarUjian() {
+    const list = await ambilData("soal");
+    document.getElementById("daftarUjian").innerHTML = `<button class="btn btn-success" onclick="mulaiUjian()">Mulai Ujian (${list.length} Soal)</button>`;
+}
+let jawabanSementara = [];
+async function mulaiUjian() {
+    jawabanSementara = [];
+    document.querySelectorAll(".konten").forEach(x => x.classList.add("d-none"));
+    document.getElementById("kontenKerjakan").classList.remove("d-none");
+    const soal = await ambilData("soal");
+    let html = "";
+    soal.forEach((s,i) => {
+        html += `<div class="card p-3 mb-3">
+            <h6>${i+1}. ${s.pertanyaan}</h6>
+            <div class="opsi" onclick="pilihJawaban(${s.id},'A',this)">A. ${s.A}</div>
+            <div class="opsi" onclick="pilihJawaban(${s.id},'B',this)">B. ${s.B}</div>
+            <div class="opsi" onclick="pilihJawaban(${s.id},'C',this)">C. ${s.C}</div>
+            <div class="opsi" onclick="pilihJawaban(${s.id},'D',this)">D. ${s.D}</div>
+        </div>`;
+    });
+    document.getElementById("soalUjian").innerHTML = html;
+}
+function pilihJawaban(idSoal, jwb, el) {
+    el.parentElement.querySelectorAll(".opsi").forEach(x => x.classList.remove("terpilih"));
+    el.classList.add("terpilih");
+    jawabanSementara = jawabanSementara.filter(x => x.idSoal !== idSoal);
+    jawabanSementara.push({idSoal, jwb});
+}
+async function kumpulkanUjian() {
+    if(!confirm("Yakin kumpulkan?")) return;
+    const soal = await ambilData("soal");
+    let benar = 0;
+    soal.forEach(s => {
+        const j = jawabanSementara.find(x => x.idSoal === s.id);
+        if(j && j.jwb === s.jawaban) benar++;
+    });
+    const nilai = Math.round((benar/soal.length)*100);
+    await simpanData("jawaban", {idSiswa:userAktif.id, nama:userAktif.nama, benar, salah:soal.length-benar, nilai, tanggal:new Date().toLocaleString()});
+    alert(`Selesai! Benar: ${benar}, Salah: ${soal.length-benar}, Nilai: ${nilai}`);
+    muatDaftarHasil();
+    document.querySelectorAll(".konten").forEach(x => x.classList.add("d-none"));
+    document.getElementById("kontenHasil").classList.remove("d-none");
+}
+async function muatDaftarHasil() {
+    const list = await ambilData("jawaban");
+    let html = `<table class="table"><thead><tr><th>Nama</th><th>Benar</th><th>Salah</th><th>Nilai</th><th>Tanggal</th></tr></thead><tbody>`;
+    list.forEach(x => html += `<tr><td>${x.nama}</td><td>${x.benar}</td><td>${x.salah}</td><td>${x.nilai}</td><td>${x.tanggal}</td></tr>`);
+    html += `</tbody></table>`;
+    document.getElementById("daftarHasil").innerHTML = html;
+}
+
+// === JALANKAN AWAL ===
+bukaDB();
+</script>
+</body>
+</html>
