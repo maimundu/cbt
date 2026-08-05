@@ -35,6 +35,7 @@
 </head>
 <body class="bg-gray-50 min-h-screen">
     <script>
+        // SISTEM PENYIMPANAN PERMANEN (TIDAK HILANG SAAT DITUTUP)
         const DB = {
             init: function() {
                 if(!localStorage.getItem('cbt_admin')) {
@@ -153,13 +154,12 @@
                     if(soalBaru.length===0) return alert('Tidak ada soal yang valid!');
                     DB.simpanBanyakSoal(soalBaru);
                     let pesan = `Berhasil mengunggah ${soalBaru.length} soal!`;
-                    if(mapelBaruDitemukan.size>0) pesan += `\n⚠️ Perhatian: Mata pelajaran berikut belum dibuat: ${[...mapelBaruDitemukan].join(', ')}\nSilakan buat dulu di menu Mata Pelajaran & Waktu agar soal tampil.`;
+                    if(mapelBaruDitemukan.size>0) pesan += `\n⚠️ Buat dulu mata pelajaran tersebut di menu "Mata Pelajaran & Waktu" agar soal tampil.`;
                     alert(pesan);
                     muatDataAdmin();
-                    muatDaftarMapelSoal();
                 } catch(err) {
                     console.error(err);
-                    alert('Gagal membaca file! Pastikan menggunakan template yang disediakan.');
+                    alert('Gagal membaca file! Gunakan template yang disediakan.');
                 }
             };
             reader.readAsBinaryString(file);
@@ -323,7 +323,7 @@
                     <div class="p-4 bg-gray-50 rounded-lg mb-6">
                         <h4 class="font-medium mb-2">Unggah Soal Massal</h4>
                         <input type="file" accept=".xlsx,.xls" onchange="prosesUploadSoal(event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white hover:file:bg-primary/90">
-                        <p class="text-xs text-gray-500 mt-2">⚠️ Nama mata pelajaran di file harus SAMA PERSIS dengan yang sudah dibuat di menu "Mata Pelajaran & Waktu"</p>
+                        <p class="text-xs text-gray-500 mt-2">⚠️ Nama mata pelajaran di file harus sama dengan yang sudah dibuat di menu "Mata Pelajaran & Waktu"</p>
                     </div>
                     <div class="grid md:grid-cols-3 gap-6">
                         <div class="md:col-span-1">
@@ -382,6 +382,7 @@
                 event.target.classList.replace('bg-gray-200','bg-primary');
             }
             function muatDataAdmin() {
+                // DATA OTOMATIS MUNCUL SETIAP KALI DIBUKA
                 document.getElementById('jml_siswa').innerText=DB.getSiswa().length;
                 document.getElementById('jml_mapel').innerText=DB.getMapel().length;
                 document.getElementById('jml_soal').innerText=DB.getSoal().length;
