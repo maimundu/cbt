@@ -75,6 +75,7 @@
             simpanSoal: d => { let a=DB.getSoal(); a.push(d); localStorage.cbt_soal=JSON.stringify(a); return true; },
             simpanBanyakSoal: arr => { let a=DB.getSoal(); a.push(...arr); localStorage.cbt_soal=JSON.stringify(a); return true; },
             getSoalByMapel: n => DB.getSoal().filter(s=>s.mapel===n),
+            hapusSoal: i => { let a=DB.getSoal(); a.splice(i,1); localStorage.cbt_soal=JSON.stringify(a); return true; },
 
             // Hasil Ujian
             getHasil: () => JSON.parse(localStorage.cbt_hasil),
@@ -122,7 +123,7 @@
             return sekarang>=mulai && sekarang<=selesai;
         }
 
-        // === FUNGSI BARU: DOWNLOAD TEMPLATE & UPLOAD SOAL ===
+        // === FUNGSI DOWNLOAD TEMPLATE & UPLOAD SOAL ===
         function downloadTemplateSoal() {
             const data = [
                 ["Mata Pelajaran", "Pertanyaan", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Opsi E", "Jawaban Benar"],
@@ -162,13 +163,72 @@
                     if(soalBaru.length===0) return alert('Tidak ada soal yang valid!');
                     DB.simpanBanyakSoal(soalBaru);
                     alert(`Berhasil mengunggah ${soalBaru.length} soal!`);
-                    muatDataAdmin();
+                    muatDataAdmin(); muatDaftarMapelSoal();
                 } catch(err) {
                     alert('Gagal membaca file! Pastikan menggunakan template yang disediakan.');
                 }
             };
             reader.readAsBinaryString(file);
             e.target.value = '';
+        }
+
+        // === FUNGSI TAMBAHAN: LIHAT SOAL PER MATA PELAJARAN ===
+        let mapelTerpilih = null;
+        function muatDaftarMapelSoal() {
+            const daftar = document.getElementById('daftar_mapel_soal');
+            const semuaMapel = DB.getMapel();
+            const semuaSoal = DB.getSoal();
+            if(semuaMapel.length===0) {
+                daftar.innerHTML='<p class="text-gray-500">Belum ada mata pelajaran.</p>';
+                return;
+            }
+            let html='';
+            semuaMapel.forEach(m=>{
+                const jmlSoal = semuaSoal.filter(s=>s.mapel===m.nama).length;
+                html += `
+                <button onclick="lihatSoalMapel('${m.nama}')" 
+                    class="w-full p-3 mb-2 border rounded-lg text-left flex justify-between items-center ${mapelTerpilih===m.nama?'border-primary bg-blue-50':'border-gray-200'} btn-hover">
+                    <span class="font-medium">${m.nama}</span>
+                    <span class="text-xs px-2 py-1 bg-gray-100 rounded">${jmlSoal} Soal</span>
+                </button>`;
+            });
+            daftar.innerHTML = html;
+        }
+
+        function lihatSoalMapel(namaMapel) {
+            mapelTerpilih = namaMapel;
+            muatDaftarMapelSoal();
+            document.getElementById('daftar_soal_mapel').classList.remove('hidden');
+            document.getElementById('nama_mapel_dilihat').innerText = namaMapel;
+
+            const soal = DB.getSoalByMapel(namaMapel);
+            const wadah = document.getElementById('isi_daftar_soal');
+            if(soal.length===0) {
+                wadah.innerHTML='<p class="text-gray-500 text-center py-4">Belum ada soal untuk mata pelajaran ini.</p>';
+                return;
+            }
+            let html='';
+            soal.forEach((s,i)=>{
+                html += `
+                <div class="border-b pb-4 mb-4">
+                    <p class="font-medium mb-2">${i+1}. ${s.soal}</p>
+                    <div class="pl-4 text-sm space-y-1">
+                        <p>A. ${s.a}</p>
+                        <p>B. ${s.b}</p>
+                        <p>C. ${s.c}</p>
+                        <p>D. ${s.d}</p>
+                        <p>E. ${s.e}</p>
+                        <p class="text-green-600 font-medium mt-2">Jawaban Benar: ${s.jawaban}</p>
+                    </div>
+                </div>`;
+            });
+            wadah.innerHTML = html;
+        }
+
+        function kembaliKeDaftarMapel() {
+            mapelTerpilih = null;
+            muatDaftarMapelSoal();
+            document.getElementById('daftar_soal_mapel').classList.add('hidden');
         }
     </script>
 
@@ -286,7 +346,7 @@
                 </div>
             </div>
 
-            <!-- Bank Soal (A-E + Upload) -->
+            <!-- Bank Soal (A-E + Upload + Daftar Soal) -->
             <div id="tab_soal" class="tab-konten hidden">
                 <div class="bg-white p-6 rounded-xl card-shadow">
                     <div class="flex flex-wrap gap-3 justify-between items-center mb-4">
@@ -303,24 +363,43 @@
                         <p class="text-xs text-gray-500 mt-2">Gunakan format sesuai template yang sudah disediakan</p>
                     </div>
 
-                    <!-- Tambah Soal Manual -->
-                    <h4 class="font-medium mb-3">Tambah Soal Satu per Satu</h4>
-                    <form id="form_soal" class="space-y-3">
-                        <select id="pilih_mapel" class="w-full p-3 border rounded-lg" required>
-                            <option value="">Pilih Mata Pelajaran</option>
-                        </select>
-                        <textarea id="teks_soal" rows="2" placeholder="Pertanyaan" class="w-full p-3 border rounded-lg" required></textarea>
-                        <input type="text" id="opsi_a" placeholder="Opsi A" class="w-full p-3 border rounded-lg" required>
-                        <input type="text" id="opsi_b" placeholder="Opsi B" class="w-full p-3 border rounded-lg" required>
-                        <input type="text" id="opsi_c" placeholder="Opsi C" class="w-full p-3 border rounded-lg" required>
-                        <input type="text" id="opsi_d" placeholder="Opsi D" class="w-full p-3 border rounded-lg" required>
-                        <input type="text" id="opsi_e" placeholder="Opsi E" class="w-full p-3 border rounded-lg" required>
-                        <select id="kunci_jawaban" class="w-full p-3 border rounded-lg" required>
-                            <option value="">Jawaban Benar</option>
-                            <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option>
-                        </select>
-                        <button class="w-full bg-orange-500 text-white py-2 rounded-lg btn-hover">Simpan Soal</button>
-                    </form>
+                    <div class="grid md:grid-cols-3 gap-6">
+                        <!-- Kolom Kiri: Daftar Mapel yang ada Soalnya -->
+                        <div class="md:col-span-1">
+                            <h4 class="font-medium mb-3">Daftar Mata Pelajaran</h4>
+                            <div id="daftar_mapel_soal"></div>
+                        </div>
+
+                        <!-- Kolom Kanan: Isi Soal / Form Tambah -->
+                        <div class="md:col-span-2">
+                            <div id="daftar_soal_mapel" class="hidden mb-6">
+                                <div class="flex items-center gap-3 mb-3">
+                                    <button onclick="kembaliKeDaftarMapel()" class="text-primary font-medium"><i class="fa fa-arrow-left mr-1"></i>Kembali</button>
+                                    <h5 class="font-semibold" id="nama_mapel_dilihat"></h5>
+                                </div>
+                                <div id="isi_daftar_soal" class="max-h-[400px] overflow-y-auto p-3 bg-gray-50 rounded-lg"></div>
+                                <hr class="my-6">
+                            </div>
+
+                            <h4 class="font-medium mb-3">Tambah Soal Satu per Satu</h4>
+                            <form id="form_soal" class="space-y-3">
+                                <select id="pilih_mapel" class="w-full p-3 border rounded-lg" required>
+                                    <option value="">Pilih Mata Pelajaran</option>
+                                </select>
+                                <textarea id="teks_soal" rows="2" placeholder="Pertanyaan" class="w-full p-3 border rounded-lg" required></textarea>
+                                <input type="text" id="opsi_a" placeholder="Opsi A" class="w-full p-3 border rounded-lg" required>
+                                <input type="text" id="opsi_b" placeholder="Opsi B" class="w-full p-3 border rounded-lg" required>
+                                <input type="text" id="opsi_c" placeholder="Opsi C" class="w-full p-3 border rounded-lg" required>
+                                <input type="text" id="opsi_d" placeholder="Opsi D" class="w-full p-3 border rounded-lg" required>
+                                <input type="text" id="opsi_e" placeholder="Opsi E" class="w-full p-3 border rounded-lg" required>
+                                <select id="kunci_jawaban" class="w-full p-3 border rounded-lg" required>
+                                    <option value="">Jawaban Benar</option>
+                                    <option>A</option><option>B</option><option>C</option><option>D</option><option>E</option>
+                                </select>
+                                <button class="w-full bg-orange-500 text-white py-2 rounded-lg btn-hover">Simpan Soal</button>
+                            </form>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -383,12 +462,15 @@
                             <span class="font-medium">${m.nama}</span>
                             <div class="text-sm text-gray-500 mt-1">${m.jam_mulai.replace('T',' ')} s.d ${m.jam_selesai.replace('T',' ')}</div>
                         </div>
-                        <button onclick="if(confirm('Yakin hapus mapel ini? Soal terkait juga akan terhapus!')){DB.hapusMapel(${i});muatDataAdmin();}" class="text-red-500 hover:text-red-700 px-2">
+                        <button onclick="if(confirm('Yakin hapus mapel ini? Soal terkait juga akan terhapus!')){DB.hapusMapel(${i});muatDataAdmin();muatDaftarMapelSoal();}" class="text-red-500 hover:text-red-700 px-2">
                             <i class="fa fa-trash"></i> Hapus
                         </button>
                     </div>`;
                 });
                 document.getElementById('daftar_mapel').innerHTML=dm;
+
+                // Muat daftar mapel di bagian soal
+                muatDaftarMapelSoal();
 
                 // Tabel Hasil
                 let th=''; DB.getHasil().forEach((h,i)=>th+=`<tr><td class="table-cell">${i+1}</td><td class="table-cell">${h.nama}</td><td class="table-cell">${h.mapel}</td><td class="table-cell">${h.benar}/${h.total}</td><td class="table-cell font-bold">${h.nilai}</td><td class="table-cell">${h.waktu}</td></tr>`);
@@ -431,7 +513,7 @@
                     e:document.getElementById('opsi_e').value,
                     jawaban:document.getElementById('kunci_jawaban').value
                 });
-                alert('Soal tersimpan!'); e.target.reset(); muatDataAdmin();
+                alert('Soal tersimpan!'); e.target.reset(); muatDataAdmin(); muatDaftarMapelSoal();
             });
         </script>
     </div>
