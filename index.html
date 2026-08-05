@@ -6,6 +6,7 @@
     <title>CBT Sekolah - Ujian Online</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -65,7 +66,6 @@
             hapusMapel: i => {
                 const namaMapel = DB.getMapel()[i].nama;
                 let a=DB.getMapel(); a.splice(i,1); localStorage.cbt_mapel=JSON.stringify(a);
-                // Hapus juga soal yang terkait mapel ini
                 let s=DB.getSoal(); s=s.filter(x=>x.mapel!==namaMapel); localStorage.cbt_soal=JSON.stringify(s);
                 return true;
             },
@@ -73,6 +73,7 @@
             // Soal (A-E)
             getSoal: () => JSON.parse(localStorage.cbt_soal),
             simpanSoal: d => { let a=DB.getSoal(); a.push(d); localStorage.cbt_soal=JSON.stringify(a); return true; },
+            simpanBanyakSoal: arr => { let a=DB.getSoal(); a.push(...arr); localStorage.cbt_soal=JSON.stringify(a); return true; },
             getSoalByMapel: n => DB.getSoal().filter(s=>s.mapel===n),
 
             // Hasil Ujian
@@ -119,6 +120,55 @@
             const mulai=new Date(data.jam_mulai).getTime();
             const selesai=new Date(data.jam_selesai).getTime();
             return sekarang>=mulai && sekarang<=selesai;
+        }
+
+        // === FUNGSI BARU: DOWNLOAD TEMPLATE & UPLOAD SOAL ===
+        function downloadTemplateSoal() {
+            const data = [
+                ["Mata Pelajaran", "Pertanyaan", "Opsi A", "Opsi B", "Opsi C", "Opsi D", "Opsi E", "Jawaban Benar"],
+                ["Matematika", "Hasil dari 2 + 3 adalah...", "4", "5", "6", "7", "8", "B"],
+                ["Bahasa Indonesia", "Kata yang baku adalah...", "Apotik", "Apotek", "Apotik", "Apotek", "Semua Benar", "B"]
+            ];
+            const ws = XLSX.utils.aoa_to_sheet(data);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Template Soal");
+            XLSX.writeFile(wb, "Template_Soal_CBT.xlsx");
+        }
+
+        function prosesUploadSoal(e) {
+            const file = e.target.files[0];
+            if(!file) return;
+            const reader = new FileReader();
+            reader.onload = function(evt) {
+                try {
+                    const wb = XLSX.read(evt.target.result, {type:'binary'});
+                    const arr = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], {header:1});
+                    if(arr.length<2) return alert('File kosong atau format salah!');
+                    const soalBaru = [];
+                    for(let i=1; i<arr.length; i++) {
+                        const baris = arr[i];
+                        if(!baris[0] || !baris[1]) continue;
+                        soalBaru.push({
+                            mapel: baris[0],
+                            soal: baris[1],
+                            a: baris[2]||'',
+                            b: baris[3]||'',
+                            c: baris[4]||'',
+                            d: baris[5]||'',
+                            e: baris[6]||'',
+                            jawaban: (baris[7]||'').toUpperCase()
+                        });
+                    }
+                    if(soalBaru.length===0) return alert('Tidak ada soal yang valid!');
+                    DB.simpanBanyakSoal(soalBaru);
+                    alert(`Berhasil mengunggah ${soalBaru.length} soal!`);
+                    muatDataAdmin();
+                } catch(err) {
+                    alert('Gagal membaca file! Pastikan menggunakan template yang disediakan.');
+                }
+            };
+            reader.readAsBinaryString(file);
+            e.target.value = '';
         }
     </script>
 
@@ -236,10 +286,25 @@
                 </div>
             </div>
 
-            <!-- Bank Soal (A-E) -->
+            <!-- Bank Soal (A-E + Upload) -->
             <div id="tab_soal" class="tab-konten hidden">
                 <div class="bg-white p-6 rounded-xl card-shadow">
-                    <h3 class="text-lg font-semibold mb-4">Tambah Soal Pilihan Ganda (A-E)</h3>
+                    <div class="flex flex-wrap gap-3 justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Kelola Soal Pilihan Ganda (A-E)</h3>
+                        <button onclick="downloadTemplateSoal()" class="bg-blue-500 text-white px-4 py-2 rounded-lg btn-hover">
+                            <i class="fa fa-download mr-2"></i>Download Template Soal
+                        </button>
+                    </div>
+
+                    <!-- Upload Soal Massal -->
+                    <div class="p-4 bg-gray-50 rounded-lg mb-6">
+                        <h4 class="font-medium mb-2">Unggah Soal Massal</h4>
+                        <input type="file" accept=".xlsx,.xls" onchange="prosesUploadSoal(event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-primary file:text-white hover:file:bg-primary/90">
+                        <p class="text-xs text-gray-500 mt-2">Gunakan format sesuai template yang sudah disediakan</p>
+                    </div>
+
+                    <!-- Tambah Soal Manual -->
+                    <h4 class="font-medium mb-3">Tambah Soal Satu per Satu</h4>
                     <form id="form_soal" class="space-y-3">
                         <select id="pilih_mapel" class="w-full p-3 border rounded-lg" required>
                             <option value="">Pilih Mata Pelajaran</option>
@@ -353,7 +418,7 @@
                 alert('Mata pelajaran & waktu tersimpan!'); e.target.reset(); muatDataAdmin();
             });
 
-            // Simpan Soal (A-E)
+            // Simpan Soal Manual
             document.getElementById('form_soal').addEventListener('submit',e=>{
                 e.preventDefault();
                 DB.simpanSoal({
@@ -384,13 +449,11 @@
             </div>
         </header>
         <div class="container mx-auto px-4 py-6">
-            <!-- PILIH MATA PELAJARAN -->
             <div id="pilih_mapel_siswa" class="bg-white p-6 rounded-xl card-shadow">
                 <h3 class="text-xl font-bold mb-4 text-center">Pilih Mata Pelajaran Ujian</h3>
                 <div class="space-y-3" id="daftar_mapel_siswa"></div>
             </div>
 
-            <!-- HALAMAN UJIAN -->
             <div id="halaman_ujian" class="hidden">
                 <div class="mb-4 flex items-center gap-3">
                     <button onclick="kembaliPilihMapel()" class="text-primary font-medium"><i class="fa fa-arrow-left mr-1"></i>Kembali</button>
@@ -409,7 +472,6 @@
                 const siswa=JSON.parse(sessionStorage.siswa_aktif);
                 document.getElementById('nama_siswa').innerText=siswa.nama;
 
-                // Tampilkan Daftar Mapel
                 const dm=document.getElementById('daftar_mapel_siswa');
                 const mapel=DB.getMapel();
                 if(mapel.length===0) {
@@ -474,7 +536,6 @@
                     </div>`;
                 });
 
-                // Kumpulkan
                 btnKumpul.onclick=()=>{
                     let benar=0;
                     soal.forEach((s,i)=>{
