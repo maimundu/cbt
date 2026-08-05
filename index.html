@@ -145,7 +145,10 @@
         }
         function cetakKartuSiswa(i){
     const s = DATA.siswa[i];
-    document.getElementById('area_cetak').innerHTML = `
+    // Tampilkan & isi data kartu
+    const area = document.getElementById('area_cetak');
+    area.classList.remove('hidden');
+    area.innerHTML = `
     <div style="width: 280px; margin: 20px auto; padding: 25px; border: 2px solid #222; border-radius: 8px; font-family: Arial, sans-serif;">
         <h3 style="text-align: center; font-size: 18px; font-weight: bold; margin: 0 0 20px 0;">KARTU AKSES UJIAN</h3>
         <hr style="border: 1px solid #aaa; margin: 10px 0 15px 0;">
@@ -176,7 +179,12 @@
         <hr style="border: 1px solid #aaa; margin: 20px 0 10px 0;">
         <p style="font-size: 11px; text-align: center; color: #333;">Gunakan data di atas untuk login ujian</p>
     </div>`;
-    setTimeout(() => window.print(), 300);
+
+    // Cetak lalu sembunyikan kembali
+    setTimeout(() => {
+        window.print();
+        area.classList.add('hidden');
+    }, 300);
 }
     </script>
 
