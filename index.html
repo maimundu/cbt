@@ -219,11 +219,17 @@ function kembaliKeDaftarMapel(){
         <hr style="border: 1px solid #aaa; margin: 10px 0 15px 0;">
         
         <div style="font-size: 14px; line-height: 1.8;" text-align: left;>
-            <div style="display: flex; gap: 8px;">
-                <span style="width: 100px; text-align: right; font-weight: bold;">Nama</span>
-                <span>:</span>
-                <span>${s.nama || '-'}</span>
-            </div>
+            <div style="display: flex; align-items: center;">
+    <span style="display: inline-block; width: 100px; font-weight: bold;">
+        Nama
+    </span>
+    <span style="display: inline-block; width: 20px; text-align: center;">
+        :
+    </span>
+    <span>
+        ${s.nama || '-'}
+    </span>
+</div>
              <div style="display: flex; gap: 8px;">
                 <span style="width: 100px; text-align: right; font-weight: bold;">Kelas</span>
                 <span>:</span>
