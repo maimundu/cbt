@@ -33,6 +33,85 @@
         let INDEKS_EDIT_MAPEL = null;
         let mapelTerpilih = null;
 
+// Muat daftar mapel dari server
+function muatDaftarMapelSoal(){
+    const el = document.getElementById('daftar_mapel_soal');
+    if(DATA.mapel.length === 0){
+        el.innerHTML = '<p class="text-slate-500 text-center py-4">Belum ada mata pelajaran</p>';
+        return;
+    }
+    el.innerHTML = DATA.mapel.map(m=>{
+        const jumlahSoal = DATA.soal.filter(s=>
+            s.mapel.trim().toLowerCase() === m.nama.trim().toLowerCase()
+        ).length;
+        return `
+            <button onclick="lihatSoalMapel('${m.nama}')" 
+                class="w-full p-3 mb-2 rounded-xl border-2 transition-all 
+                ${mapelTerpilih === m.nama ? 'border-primary bg-blue-50 text-primary font-medium' : 'border-slate-200 hover:border-slate-300'}">
+                <div class="flex justify-between items-center">
+                    <span>${m.nama}</span>
+                    <span class="text-xs bg-slate-100 px-2 py-1 rounded-full">${jumlahSoal} Soal</span>
+                </div>
+            </button>
+        `;
+    }).join('');
+}
+
+// Tampilkan soal saat mapel diklik
+function lihatSoalMapel(namaMapel){
+    mapelTerpilih = namaMapel;
+    muatDaftarMapelSoal(); // Tandai mapel yang aktif
+
+    document.getElementById('daftar_soal_mapel').classList.remove('hidden');
+    document.getElementById('nama_mapel_dilihat').innerText = namaMapel;
+
+    // Ambil soal sesuai mapel
+    const daftarSoal = DATA.soal.filter(s=>
+        s.mapel.trim().toLowerCase() === namaMapel.trim().toLowerCase()
+    );
+
+    if(daftarSoal.length === 0){
+        document.getElementById('isi_daftar_soal').innerHTML = '<p class="text-slate-500 text-center py-8">Belum ada soal untuk mapel ini</p>';
+        return;
+    }
+
+    // Tampilkan soal dengan tombol Hapus
+    document.getElementById('isi_daftar_soal').innerHTML = daftarSoal.map((soal, urutan)=>{
+        const posisiAsli = DATA.soal.findIndex(x => x === soal);
+        return `
+            <div class="p-4 bg-slate-50 rounded-xl mb-3 border border-slate-100 relative">
+                <button onclick="hapusSoalDariDaftar(${posisiAsli}, '${namaMapel}')" 
+                    class="absolute top-3 right-3 text-danger hover:text-red-700">
+                    <i class="fa fa-trash"></i> Hapus
+                </button>
+                <p class="font-medium pr-16 mb-2">${urutan+1}. ${soal.soal}</p>
+                <div class="pl-4 text-sm space-y-1 text-slate-600">
+                    <p>A. ${soal.a}</p>
+                    <p>B. ${soal.b}</p>
+                    <p>C. ${soal.c}</p>
+                    <p>D. ${soal.d}</p>
+                    <p>E. ${soal.e}</p>
+                    <p class="text-secondary font-medium pt-1">Jawaban: ${soal.jawaban}</p>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+// Hapus soal langsung ke server
+async function hapusSoalDariDaftar(indeks, namaMapel){
+    if(!confirm('Yakin ingin menghapus soal ini dari server?')) return;
+    await kirimKeServer('hapusSoal', {indeks: indeks});
+    await muatDariServer(); // Muat ulang data terbaru
+    lihatSoalMapel(namaMapel); // Tampil ulang daftar
+}
+
+function kembaliKeDaftarMapel(){
+    mapelTerpilih = null;
+    muatDaftarMapelSoal();
+    document.getElementById('daftar_soal_mapel').classList.add('hidden');
+}
+        
         async function muatDariServer() {
             try {
                 const res = await fetch(URL_SERVER+"?action=ambilSemua");
@@ -271,41 +350,66 @@
             </div>
 
             <!-- SOAL -->
-            <div id="tab_soal" class="tab-konten hidden">
-                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
-                    <div class="flex justify-between items-center mb-4">
-                        <h3 class="text-lg font-semibold text-dark">Bank Soal</h3>
-                        <button onclick="downloadTemplateSoal()" class="bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
-                            <i class="fa fa-download"></i> Download Template
-                        </button>
-                    </div>
-                    <input type="file" accept=".xlsx,.xls" onchange="prosesUploadSoal(event)" class="mb-6 w-full p-3 border border-slate-200 rounded-xl bg-slate-50">
-                    <div class="grid md:grid-cols-3 gap-6">
-                        <div><h4 class="font-medium mb-3 text-slate-700">Daftar Mata Pelajaran</h4><div id="daftar_mapel_soal"></div></div>
-                        <div class="md:col-span-2">
-                            <div id="daftar_soal_mapel" class="hidden mb-4">
-                                <div class="flex items-center gap-3 mb-4"><button onclick="kembaliKeDaftarMapel()" class="text-primary hover:text-blue-700 font-medium"><i class="fa fa-arrow-left"></i> Kembali</button><b id="nama_mapel_dilihat"></b></div>
-                                <div id="isi_daftar_soal" class="max-h-[450px] overflow-y-auto pr-2"></div>
-                            </div>
-                            <h4 class="font-medium mb-3 text-slate-700">Tambah Soal Baru</h4>
-                            <form id="form_soal" class="space-y-3">
-                                <select id="pilih_mapel" class="w-full p-3.5 border border-slate-200 rounded-xl transition-all" required><option value="">Pilih Mata Pelajaran</option></select>
-                                <textarea id="teks_soal" rows="2" class="w-full p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Tulis pertanyaan..." required></textarea>
-                                <div class="grid grid-cols-2 gap-3">
-                                    <input type="text" id="opsi_a" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi A" required>
-                                    <input type="text" id="opsi_b" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi B" required>
-                                    <input type="text" id="opsi_c" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi C" required>
-                                    <input type="text" id="opsi_d" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi D" required>
-                                    <input type="text" id="opsi_e" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi E" required>
-                                    <select id="kunci_jawaban" class="p-3.5 border border-slate-200 rounded-xl transition-all" required><option value="">Jawaban Benar</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
-                                </div>
-                                <button class="w-full bg-warning hover:bg-amber-600 text-white py-3 rounded-xl font-medium transition-all">Simpan Soal</button>
-                            </form>
-                        </div>
-                    </div>
+<div id="tab_soal" class="tab-konten hidden">
+    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-semibold text-dark">Bank Soal</h3>
+            <button onclick="downloadTemplateSoal()" class="bg-primary/10 text-primary hover:bg-primary/20 px-4 py-2 rounded-xl text-sm font-medium transition-all flex items-center gap-2">
+                <i class="fa fa-download"></i> Download Template
+            </button>
+        </div>
+        <input type="file" accept=".xlsx,.xls" onchange="prosesUploadSoal(event)" class="mb-6 w-full p-3 border border-slate-200 rounded-xl bg-slate-50">
+        
+        <div class="grid md:grid-cols-3 gap-6">
+            <!-- KOLOM KIRI: DAFTAR MAPEL DARI SERVER -->
+            <div>
+                <h4 class="font-medium mb-3 text-slate-700">Daftar Mata Pelajaran</h4>
+                <div id="daftar_mapel_soal">
+                    <!-- Daftar mapel akan dimuat otomatis dari server -->
                 </div>
             </div>
 
+            <!-- KOLOM KANAN: DAFTAR SOAL MAPEL TERPILIH -->
+            <div class="md:col-span-2">
+                <div id="daftar_soal_mapel" class="hidden mb-4">
+                    <div class="flex items-center gap-3 mb-4">
+                        <button onclick="kembaliKeDaftarMapel()" class="text-primary hover:text-blue-700 font-medium">
+                            <i class="fa fa-arrow-left"></i> Kembali
+                        </button>
+                        <b id="nama_mapel_dilihat"></b>
+                    </div>
+                    <div id="isi_daftar_soal" class="max-h-[450px] overflow-y-auto pr-2">
+                        <!-- Daftar soal muncul di sini -->
+                    </div>
+                </div>
+
+                <h4 class="font-medium mb-3 text-slate-700">Tambah Soal Baru</h4>
+                <form id="form_soal" class="space-y-3">
+                    <select id="pilih_mapel" class="w-full p-3.5 border border-slate-200 rounded-xl transition-all" required>
+                        <option value="">Pilih Mata Pelajaran</option>
+                    </select>
+                    <textarea id="teks_soal" rows="2" class="w-full p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Tulis pertanyaan..." required></textarea>
+                    <div class="grid grid-cols-2 gap-3">
+                        <input type="text" id="opsi_a" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi A" required>
+                        <input type="text" id="opsi_b" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi B" required>
+                        <input type="text" id="opsi_c" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi C" required>
+                        <input type="text" id="opsi_d" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi D" required>
+                        <input type="text" id="opsi_e" class="p-3.5 border border-slate-200 rounded-xl transition-all" placeholder="Opsi E" required>
+                        <select id="kunci_jawaban" class="p-3.5 border border-slate-200 rounded-xl transition-all" required>
+                            <option value="">Jawaban Benar</option>
+                            <option value="A">A</option>
+                            <option value="B">B</option>
+                            <option value="C">C</option>
+                            <option value="D">D</option>
+                            <option value="E">E</option>
+                        </select>
+                    </div>
+                    <button class="w-full bg-warning hover:bg-amber-600 text-white py-3 rounded-xl font-medium transition-all">Simpan Soal</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
             <!-- HASIL -->
             <div id="tab_hasil" class="tab-konten hidden">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
