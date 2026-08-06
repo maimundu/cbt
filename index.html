@@ -28,7 +28,7 @@
                         nama: json.admin[1][2] || AKUN_ADMIN_TETAP.nama 
                     };
                 }
-                DATA.siswa = (json.siswa||[]).slice(1).map(x=>({nama:x[0]||'',nis:x[1]||'',username:x[2]||'',password:x[3]||''}));
+                DATA.siswa = (json.siswa||[]).slice(1).map(x=>({nama:x[0]||'', kelas:x[1]||'', nis:x[2]||'', username:x[3]||'', password:x[4]||''}));
                 DATA.mapel = (json.mapel||[]).slice(1).map(x=>({nama:x[0],jam_mulai:x[1],jam_selesai:x[2]}));
                 DATA.soal = (json.soal||[]).slice(1).map(x=>({mapel:x[0],soal:x[1],a:x[2],b:x[3],c:x[4],d:x[5],e:x[6],jawaban:x[7]}));
                 DATA.hasil = (json.hasil||[]).slice(1).map(x=>({nama:x[0],nis:x[1],mapel:x[2],benar:x[3],total:x[4],nilai:x[5],waktu:x[6]}));
@@ -182,15 +182,16 @@ function kembaliKeDaftarMapel(){
 
         // === FUNGSI TAMBAHAN: EDIT & CETAK ===
         function editSiswa(i){
-            const s = DATA.siswa[i];
-            document.getElementById('nama_siswa').value = s.nama;
-            document.getElementById('nis_siswa').value = s.nis;
-            document.getElementById('user_siswa').value = s.username;
-            document.getElementById('pass_siswa').value = s.password;
-            INDEKS_EDIT_SISWA = i;
-            document.querySelector('#form_siswa button').innerText = 'Perbarui Data';
-            document.querySelector('#form_siswa button').classList.replace('bg-blue-600','bg-yellow-500');
-        }
+  const s = DATA.siswa[i];
+  document.getElementById('nama_siswa').value = s.nama;
+  document.getElementById('kelas_siswa').value = s.kelas;
+  document.getElementById('nis_siswa').value = s.nis;
+  document.getElementById('user_siswa').value = s.username;
+  document.getElementById('pass_siswa').value = s.password;
+  INDEKS_EDIT_SISWA = i;
+  document.querySelector('#form_siswa button').innerText = 'Perbarui Data';
+  document.querySelector('#form_siswa button').classList.replace('bg-blue-600','bg-yellow-500');
+}
         async function simpanEditSiswa(){
             // Hapus lama, simpan baru (karena kode server simpan append)
             await kirimKeServer('hapusSiswa', {indeks:INDEKS_EDIT_SISWA});
@@ -221,6 +222,11 @@ function kembaliKeDaftarMapel(){
                 <span style="width: 100px; text-align: right; font-weight: bold;">Nama</span>
                 <span>:</span>
                 <span>${s.nama || '-'}</span>
+            </div>
+             <div style="display: flex; gap: 8px;">
+                <span style="width: 100px; text-align: right; font-weight: bold;">Nama</span>
+                <span>:</span>
+                <span>${s.kelas || '-'}</span>
             </div>
             <div style="display: flex; gap: 8px;">
                 <span style="width: 100px; text-align: right; font-weight: bold;">NIS</span>
@@ -301,6 +307,7 @@ function editMapel(i){
                     <h3 class="font-semibold mb-4">Kelola Data Siswa</h3>
                     <form id="form_siswa" class="grid md:grid-cols-2 gap-3 mb-6">
                         <input type="text" id="nama_siswa" placeholder="Nama Lengkap" class="p-3 border rounded" required>
+                        <input type="text" id="kelas_siswa" placeholder="Kelas (Contoh: X-A)" class="p-3 border rounded" required>
                         <input type="text" id="nis_siswa" placeholder="NIS" class="p-3 border rounded" required>
                         <input type="text" id="user_siswa" placeholder="Username Login" class="p-3 border rounded" required>
                         <input type="text" id="pass_siswa" placeholder="Password Login" class="p-3 border rounded" required>
@@ -313,6 +320,7 @@ function editMapel(i){
                             <tr>
                                 <th>No</th>
                                 <th>Nama</th>
+                                <th>Kelas</th>
                                 <th>NIS</th>
                                 <th>Username</th>
                                 <th>Password</th>
@@ -389,17 +397,18 @@ function editMapel(i){
 
                 // TABEL SISWA LENGKAP DENGAN PASSWORD & TOMBOL
                 document.getElementById('tabel_siswa').innerHTML=DATA.siswa.map((s,i)=>`<tr>
-                    <td>${i+1}</td>
-                    <td>${s.nama}</td>
-                    <td>${s.nis}</td>
-                    <td>${s.username}</td>
-                    <td><b>${s.password}</b></td>
-                    <td class="text-center">
-                        <button onclick="editSiswa(${i})" class="text-yellow-500 mx-1" title="Edit"><i class="fa fa-pencil"></i></button>
-                        <button onclick="cetakKartuSiswa(${i})" class="text-blue-500 mx-1" title="Cetak Kartu"><i class="fa fa-id-card"></i></button>
-                        <button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusSiswa',{indeks:i}).then(muatDataAdmin);}" class="text-red-500 mx-1" title="Hapus"><i class="fa fa-trash"></i></button>
-                    </td>
-                </tr>`).join('');
+  <td>${i+1}</td>
+  <td>${s.nama}</td>
+  <td>${s.kelas}</td>
+  <td>${s.nis}</td>
+  <td>${s.username}</td>
+  <td><b>${s.password}</b></td>
+  <td class="text-center">
+    <button onclick="editSiswa(${i})" class="text-yellow-500 mx-1" title="Edit"><i class="fa fa-pencil"></i></button>
+    <button onclick="cetakKartuSiswa(${i})" class="text-blue-500 mx-1" title="Cetak Kartu"><i class="fa fa-id-card"></i></button>
+    <button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusSiswa',{indeks:i}).then(muatDataAdmin);}" class="text-red-500 mx-1" title="Hapus"><i class="fa fa-trash"></i></button>
+  </td>
+</tr>`).join('');
 
                 document.getElementById('pilih_mapel').innerHTML=`<option value="">Pilih Mapel</option>`+DATA.mapel.map(m=>`<option value="${m.nama}">${m.nama}</option>`).join('');
                 document.getElementById('daftar_mapel').innerHTML=DATA.mapel.map((m,i)=>`<div class="p-3 bg-gray-50 rounded flex justify-between items-center"><div><b>${m.nama}</b><br><small>${m.jam_mulai.replace('T',' ')} - ${m.jam_selesai.replace('T',' ')}</small></div><div><button onclick="editMapel(${i})" class="text-yellow-500 mr-2" title="Ubah"><i class="fa fa-pencil"></i></button><button onclick="if(confirm('Yakin hapus?')){kirimKeServer('hapusMapel',{indeks:i}).then(muatDataAdmin);}" class="text-red-500" title="Hapus"><i class="fa fa-trash"></i></button></div></div>`).join('');
@@ -408,16 +417,22 @@ function editMapel(i){
             }
 
             document.getElementById('form_siswa').addEventListener('submit',async e=>{
-                e.preventDefault();
-                if(INDEKS_EDIT_SISWA !== null){
-                    await simpanEditSiswa();
-                    return;
-                }
-                await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});
-                alert('✅ Data siswa tersimpan!');
-                e.target.reset();
-                muatDataAdmin();
-            });
+  e.preventDefault();
+  if(INDEKS_EDIT_SISWA !== null){
+    await simpanEditSiswa();
+    return;
+  }
+  await kirimKeServer('simpanSiswa',{
+    nama:document.getElementById('nama_siswa').value,
+    kelas:document.getElementById('kelas_siswa').value,
+    nis:document.getElementById('nis_siswa').value,
+    username:document.getElementById('user_siswa').value,
+    password:document.getElementById('pass_siswa').value
+  });
+  alert('✅ Data siswa tersimpan!');
+  e.target.reset();
+  muatDataAdmin();
+});
             document.getElementById('form_mapel').addEventListener('submit',async e=>{
     e.preventDefault();
     if(INDEKS_EDIT_MAPEL !== null){
