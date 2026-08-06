@@ -23,9 +23,16 @@
         };
 
         // === GANTI DENGAN TAUTAN APPS SCRIPT ANDA ===
-        const URL_SERVER = "https://script.google.com/macros/s/AKfycbyeqyqpx8An4MISEhFbxbNO9JtkZ_Ucj6JjcC7NwtXvBgZGHTtfaVzFHsgdCmkIaXMz/exec"; 
-        const AKUN_ADMIN_TETAP = {username:'admin_sekolah',password:'admin123',nama:'Operator Sekolah'};
-        let DATA = {admin:AKUN_ADMIN_TETAP, siswa:[], mapel:[], soal:[], hasil:[]};
+        const URL_SERVER = "https://script.google.com/macros/s/AKfycby.../exec"; 
+        
+        // Data awal KOSONG, akan diisi otomatis dari Server
+        let DATA = {
+            admin: null, // TIDAK ADA akun bawaan lagi
+            siswa:[], 
+            mapel:[], 
+            soal:[], 
+            hasil:[]
+        };
         let INDEKS_EDIT_SISWA = null;
         let INDEKS_EDIT_MAPEL = null;
         let mapelTerpilih = null;
@@ -35,13 +42,18 @@
                 const res = await fetch(URL_SERVER+"?action=ambilSemua");
                 if(!res.ok) throw new Error("Server tidak merespon");
                 const json = await res.json();
+                
+                // AMBIL DATA ADMIN HANYA DARI SERVER
                 if(json.admin && json.admin.length > 1) {
                     DATA.admin = { 
-                        username: json.admin[1][0] || AKUN_ADMIN_TETAP.username, 
-                        password: json.admin[1][1] || AKUN_ADMIN_TETAP.password, 
-                        nama: json.admin[1][2] || AKUN_ADMIN_TETAP.nama 
+                        username: String(json.admin[1][0] || '').trim(), 
+                        password: String(json.admin[1][1] || '').trim(), 
+                        nama: String(json.admin[1][2] || 'Admin').trim()
                     };
+                } else {
+                    DATA.admin = null; // Jika belum ada di Sheet, biarkan kosong
                 }
+
                 DATA.siswa = (json.siswa||[]).slice(1).map(x=>({nama:x[0]||'',kelas:x[1]||'',nis:x[2]||'',username:x[3]||'',password:x[4]||''}));
                 DATA.mapel = (json.mapel||[]).slice(1).map(x=>({nama:x[0],jam_mulai:x[1],jam_selesai:x[2]}));
                 DATA.soal = (json.soal||[]).slice(1).map(x=>({mapel:x[0],soal:x[1],a:x[2],b:x[3],c:x[4],d:x[5],e:x[6],jawaban:x[7]}));
@@ -79,8 +91,18 @@
         async function prosesLogin(tipe){
             const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value.trim();
             await muatDariServer();
+
             if(tipe==='admin'){
-                if(DATA.admin.username===u && DATA.admin.password===p){tampilkanHalaman('halaman_admin');muatDataAdmin();return;}
+                // CEK HANYA JIKA DATA ADMIN SUDAH ADA DI SERVER
+                if(!DATA.admin || !DATA.admin.username || !DATA.admin.password){
+                    alert("⚠️ Data Admin belum disetting di Google Sheet!");
+                    return;
+                }
+                if(DATA.admin.username===u && DATA.admin.password===p){
+                    tampilkanHalaman('halaman_admin');
+                    muatDataAdmin();
+                    return;
+                }
                 alert("❌ Username atau Password Admin salah!");
             }else{
                 const a=DATA.siswa.find(s=>s.username===u&&s.password===p);
