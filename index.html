@@ -23,16 +23,9 @@
         };
 
         // === GANTI DENGAN TAUTAN APPS SCRIPT ANDA ===
-        const URL_SERVER = "https://script.google.com/macros/s/AKfycbyeqyqpx8An4MISEhFbxbNO9JtkZ_Ucj6JjcC7NwtXvBgZGHTtfaVzFHsgdCmkIaXMz/exec"; 
+        const URL_SERVER = "https://script.google.com/macros/s/AKfycby.../exec"; 
         
-        // Data awal KOSONG, akan diisi otomatis dari Server
-        let DATA = {
-            admin: null, // TIDAK ADA akun bawaan lagi
-            siswa:[], 
-            mapel:[], 
-            soal:[], 
-            hasil:[]
-        };
+        let DATA = {admin: null, siswa:[], mapel:[], soal:[], hasil:[]};
         let INDEKS_EDIT_SISWA = null;
         let INDEKS_EDIT_MAPEL = null;
         let mapelTerpilih = null;
@@ -43,20 +36,27 @@
                 if(!res.ok) throw new Error("Server tidak merespon");
                 const json = await res.json();
                 
-                // AMBIL DATA ADMIN HANYA DARI SERVER
                 if(json.admin && json.admin.length > 1) {
                     DATA.admin = { 
                         username: String(json.admin[1][0] || '').trim(), 
                         password: String(json.admin[1][1] || '').trim(), 
                         nama: String(json.admin[1][2] || 'Admin').trim()
                     };
-                } else {
-                    DATA.admin = null; // Jika belum ada di Sheet, biarkan kosong
-                }
+                } else { DATA.admin = null; }
 
                 DATA.siswa = (json.siswa||[]).slice(1).map(x=>({nama:x[0]||'',kelas:x[1]||'',nis:x[2]||'',username:x[3]||'',password:x[4]||''}));
                 DATA.mapel = (json.mapel||[]).slice(1).map(x=>({nama:x[0],jam_mulai:x[1],jam_selesai:x[2]}));
-                DATA.soal = (json.soal||[]).slice(1).map(x=>({mapel:x[0],soal:x[1],a:x[2],b:x[3],c:x[4],d:x[5],e:x[6],jawaban:x[7]}));
+                DATA.soal = (json.soal||[]).slice(1).map(x=>({
+                    mapel:x[0]||'',
+                    soal:x[1]||'',
+                    gambar_soal:x[2]||'',
+                    a:x[3]||'', gambar_a:x[4]||'',
+                    b:x[5]||'', gambar_b:x[6]||'',
+                    c:x[7]||'', gambar_c:x[8]||'',
+                    d:x[9]||'', gambar_d:x[10]||'',
+                    e:x[11]||'', gambar_e:x[12]||'',
+                    jawaban:x[13]||''
+                }));
                 DATA.hasil = (json.hasil||[]).slice(1).map(x=>({nama:x[0],nis:x[1],mapel:x[2],benar:x[3],total:x[4],nilai:x[5],waktu:x[6]}));
             } catch(err) {
                 console.error(err);
@@ -65,7 +65,11 @@
         }
         async function kirimKeServer(aksi, data={}) {
             try {
-                await fetch(URL_SERVER+"?action="+aksi, {method:'POST', body:JSON.stringify(data)});
+                await fetch(URL_SERVER+"?action="+aksi, {
+                    method:'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body:JSON.stringify(data)
+                });
                 await muatDariServer();
                 return true;
             } catch(err) {
@@ -82,6 +86,8 @@
             button, header, nav, .no-print { display: none !important; }
         }
         input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
+        .gambar-soal { max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 8px; margin: 8px 0; border:1px solid #e2e8f0; }
+        .gambar-opsi { max-width: 180px; max-height: 100px; object-fit: contain; border-radius: 6px; margin-left: 8px; border:1px solid #e2e8f0; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -91,18 +97,9 @@
         async function prosesLogin(tipe){
             const u=document.getElementById('username').value.trim(), p=document.getElementById('password').value.trim();
             await muatDariServer();
-
             if(tipe==='admin'){
-                // CEK HANYA JIKA DATA ADMIN SUDAH ADA DI SERVER
-                if(!DATA.admin || !DATA.admin.username || !DATA.admin.password){
-                    alert("⚠️ Data Admin belum disetting di Google Sheet!");
-                    return;
-                }
-                if(DATA.admin.username===u && DATA.admin.password===p){
-                    tampilkanHalaman('halaman_admin');
-                    muatDataAdmin();
-                    return;
-                }
+                if(!DATA.admin || !DATA.admin.username || !DATA.admin.password){alert("⚠️ Data Admin belum disetting di Google Sheet!");return;}
+                if(DATA.admin.username===u && DATA.admin.password===p){tampilkanHalaman('halaman_admin');muatDataAdmin();return;}
                 alert("❌ Username atau Password Admin salah!");
             }else{
                 const a=DATA.siswa.find(s=>s.username===u&&s.password===p);
@@ -116,39 +113,70 @@
             const s=new Date().getTime(), m=new Date(d.jam_mulai).getTime(), e=new Date(d.jam_selesai).getTime();
             return s>=m&&s<=e;
         }
-        function downloadTemplateSoal(){const d=[["Mata Pelajaran","Pertanyaan","Opsi A","Opsi B","Opsi C","Opsi D","Opsi E","Jawaban"],["Matematika","2+3?","3","5","7","9","11","B"]];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d));XLSX.writeFile(wb,"Template_Soal.xlsx");}
+
+        function downloadTemplateSoal(){
+            const d=[
+                ["Mata Pelajaran","Pertanyaan","Gambar Soal","Opsi A","Gambar A","Opsi B","Gambar B","Opsi C","Gambar C","Opsi D","Gambar D","Opsi E","Gambar E","Jawaban"],
+                ["Matematika","Lihat gambar dibawah ini berapakah hasilnya?","","5","","10","","15","","20","","25","","B"]
+            ];
+            const wb=XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d));
+            XLSX.writeFile(wb,"Template_Soal_Dengan_Gambar.xlsx");
+        }
+
         async function prosesUploadSoal(e){
             const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=async evt=>{
                 const wb=XLSX.read(evt.target.result,{type:'binary'});const arr=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1});
-                const soalBaru=[];for(let i=1;i<arr.length;i++){const b=arr[i];if(!b[0]||!b[1])continue;soalBaru.push({mapel:String(b[0]).trim(),soal:String(b[1]).trim(),a:String(b[2]||''),b:String(b[3]||''),c:String(b[4]||''),d:String(b[5]||''),e:String(b[6]||''),jawaban:String(b[7]||'').toUpperCase()});}
+                const soalBaru=[];
+                for(let i=1;i<arr.length;i++){
+                    const b=arr[i];if(!b[0]||!b[1])continue;
+                    soalBaru.push({
+                        mapel:String(b[0]).trim(),
+                        soal:String(b[1]).trim(),
+                        gambar_soal:String(b[2]||'').trim(),
+                        a:String(b[3]||'').trim(), gambar_a:String(b[4]||'').trim(),
+                        b:String(b[5]||'').trim(), gambar_b:String(b[6]||'').trim(),
+                        c:String(b[7]||'').trim(), gambar_c:String(b[8]||'').trim(),
+                        d:String(b[9]||'').trim(), gambar_d:String(b[10]||'').trim(),
+                        e:String(b[11]||'').trim(), gambar_e:String(b[12]||'').trim(),
+                        jawaban:String(b[13]||'').toUpperCase().trim()
+                    });
+                }
                 await kirimKeServer('simpanBanyakSoal',soalBaru);alert(`✅ Berhasil memuat ${soalBaru.length} soal!`);muatDataAdmin();
             };r.readAsBinaryString(f);
         }
 
-        // === FUNGSI SOAL: DAFTAR MAPEL & HAPUS ===
         function muatDaftarMapelSoal(){
             const el = document.getElementById('daftar_mapel_soal');
-            if(DATA.mapel.length === 0){
-                el.innerHTML = '<p class="text-slate-500 text-center py-4">Belum ada mata pelajaran</p>';
-                return;
-            }
+            if(DATA.mapel.length === 0){el.innerHTML = '<p class="text-slate-500 text-center py-4">Belum ada mata pelajaran</p>';return;}
             el.innerHTML = DATA.mapel.map(m=>{
                 const jumlahSoal = DATA.soal.filter(s=>s.mapel.trim().toLowerCase()===m.nama.trim().toLowerCase()).length;
                 return `<button onclick="lihatSoalMapel('${m.nama}')" class="w-full p-3 mb-2 rounded-xl border-2 transition-all ${mapelTerpilih===m.nama?'border-primary bg-blue-50 text-primary font-medium':'border-slate-200 hover:border-slate-300'}"><div class="flex justify-between items-center"><span>${m.nama}</span><span class="text-xs bg-slate-100 px-2 py-1 rounded-full">${jumlahSoal} Soal</span></div></button>`;
             }).join('');
         }
+
         function lihatSoalMapel(namaMapel){
             mapelTerpilih = namaMapel; muatDaftarMapelSoal();
             document.getElementById('daftar_soal_mapel').classList.remove('hidden');
             document.getElementById('nama_mapel_dilihat').innerText = namaMapel;
             const daftarSoal = DATA.soal.filter(s=>s.mapel.trim().toLowerCase()===namaMapel.trim().toLowerCase());
-            if(daftarSoal.length === 0){
-                document.getElementById('isi_daftar_soal').innerHTML = '<p class="text-slate-500 text-center py-8">Belum ada soal untuk mapel ini</p>';
-                return;
-            }
+            if(daftarSoal.length === 0){document.getElementById('isi_daftar_soal').innerHTML = '<p class="text-slate-500 text-center py-8">Belum ada soal untuk mapel ini</p>';return;}
+            
             document.getElementById('isi_daftar_soal').innerHTML = daftarSoal.map((soal, urutan)=>{
                 const posisiAsli = DATA.soal.findIndex(x => x === soal);
-                return `<div class="p-4 bg-slate-50 rounded-xl mb-3 border border-slate-100 relative"><button onclick="hapusSoalDariDaftar(${posisiAsli}, '${namaMapel}')" class="absolute top-3 right-3 text-danger hover:text-red-700"><i class="fa fa-trash"></i> Hapus</button><p class="font-medium pr-16 mb-2">${urutan+1}. ${soal.soal}</p><div class="pl-4 text-sm space-y-1 text-slate-600"><p>A. ${soal.a}</p><p>B. ${soal.b}</p><p>C. ${soal.c}</p><p>D. ${soal.d}</p><p>E. ${soal.e}</p><p class="text-secondary font-medium pt-1">Jawaban: ${soal.jawaban}</p></div></div>`;
+                const tampilGambarSoal = soal.gambar_soal ? `<img src="${soal.gambar_soal}" class="gambar-soal" alt="Gambar Soal" loading="lazy">` : '';
+                return `<div class="p-4 bg-slate-50 rounded-xl mb-3 border border-slate-100 relative">
+                    <button onclick="hapusSoalDariDaftar(${posisiAsli}, '${namaMapel}')" class="absolute top-3 right-3 text-danger hover:text-red-700"><i class="fa fa-trash"></i> Hapus</button>
+                    <p class="font-medium pr-16 mb-2">${urutan+1}. ${soal.soal}</p>${tampilGambarSoal}
+                    <div class="pl-4 text-sm space-y-1 text-slate-600">
+                        <p>A. ${soal.a} ${soal.gambar_a?`<img src="${soal.gambar_a}" class="gambar-opsi" loading="lazy">`:''}</p>
+                        <p>B. ${soal.b} ${soal.gambar_b?`<img src="${soal.gambar_b}" class="gambar-opsi" loading="lazy">`:''}</p>
+                        <p>C. ${soal.c} ${soal.gambar_c?`<img src="${soal.gambar_c}" class="gambar-opsi" loading="lazy">`:''}</p>
+                        <p>D. ${soal.d} ${soal.gambar_d?`<img src="${soal.gambar_d}" class="gambar-opsi" loading="lazy">`:''}</p>
+                        <p>E. ${soal.e} ${soal.gambar_e?`<img src="${soal.gambar_e}" class="gambar-opsi" loading="lazy">`:''}</p>
+                        <p class="text-secondary font-medium pt-1">Jawaban: ${soal.jawaban}</p>
+                    </div>
+                </div>`;
             }).join('');
         }
         async function hapusSoalDariDaftar(indeks, namaMapel){
@@ -158,7 +186,6 @@
         }
         function kembaliKeDaftarMapel(){mapelTerpilih=null;muatDaftarMapelSoal();document.getElementById('daftar_soal_mapel').classList.add('hidden');}
 
-        // === FUNGSI EDIT & CETAK ===
         function editSiswa(i){const s=DATA.siswa[i];document.getElementById('nama_siswa').value=s.nama;document.getElementById('kelas_siswa').value=s.kelas;document.getElementById('nis_siswa').value=s.nis;document.getElementById('user_siswa').value=s.username;document.getElementById('pass_siswa').value=s.password;INDEKS_EDIT_SISWA=i;document.querySelector('#form_siswa button').innerText='Perbarui';document.querySelector('#form_siswa button').className='md:col-span-2 bg-warning hover:bg-amber-600 text-white py-3 rounded-xl transition-all';}
         async function simpanEditSiswa(){await kirimKeServer('hapusSiswa',{indeks:INDEKS_EDIT_SISWA});await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,kelas:document.getElementById('kelas_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});INDEKS_EDIT_SISWA=null;document.querySelector('#form_siswa button').innerText='Simpan';document.querySelector('#form_siswa button').className='md:col-span-2 bg-primary hover:bg-blue-700 text-white py-3 rounded-xl transition-all';alert('✅ Data diperbarui!');muatDataAdmin();}
         function editMapel(i){const m=DATA.mapel[i];document.getElementById('nama_mapel').value=m.nama;document.getElementById('jam_mulai').value=m.jam_mulai;document.getElementById('jam_selesai').value=m.jam_selesai;INDEKS_EDIT_MAPEL=i;document.getElementById('btn_mapel').innerText='Perbarui';document.getElementById('btn_mapel').className='w-full bg-warning hover:bg-amber-600 text-white py-3 rounded-xl transition-all';}
@@ -201,7 +228,6 @@
                 <button onclick="tabAdmin('hasil')" class="tab-btn px-5 py-2.5 rounded-xl font-medium bg-white border border-slate-200 hover:bg-slate-50">Hasil Ujian</button>
             </div>
 
-            <!-- DASHBOARD -->
             <div id="tab_dashboard" class="tab-konten">
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
                     <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100"><div class="flex items-center justify-between"><div><p class="text-slate-500 text-sm">Total Siswa</p><p class="text-3xl font-bold text-primary mt-1" id="jml_siswa">0</p></div><div class="w-12 h-12 bg-blue-50 rounded-xl flex items-center justify-center"><i class="fa fa-users text-primary text-xl"></i></div></div></div>
@@ -211,7 +237,6 @@
                 </div>
             </div>
 
-            <!-- SISWA -->
             <div id="tab_siswa" class="tab-konten hidden">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                     <h3 class="text-lg font-semibold mb-4 text-dark">Kelola Data Siswa</h3>
@@ -236,7 +261,6 @@
                 </div>
             </div>
 
-            <!-- MAPEL -->
             <div id="tab_mapel" class="tab-konten hidden">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                     <h3 class="text-lg font-semibold mb-4 text-dark">Mata Pelajaran & Waktu Ujian</h3>
@@ -252,7 +276,6 @@
                 </div>
             </div>
 
-            <!-- SOAL -->
             <div id="tab_soal" class="tab-konten hidden">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                     <div class="flex justify-between items-center mb-4">
@@ -271,22 +294,27 @@
                             <form id="form_soal" class="space-y-3">
                                 <select id="pilih_mapel" class="w-full p-3.5 border border-slate-200 rounded-xl" required><option value="">Pilih Mata Pelajaran</option></select>
                                 <textarea id="teks_soal" rows="2" class="w-full p-3.5 border border-slate-200 rounded-xl" placeholder="Tulis pertanyaan..." required></textarea>
+                                <input type="text" id="gambar_soal" class="w-full p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar Soal (Opsional)">
                                 <div class="grid grid-cols-2 gap-3">
                                     <input type="text" id="opsi_a" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi A" required>
+                                    <input type="text" id="gambar_a" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar A">
                                     <input type="text" id="opsi_b" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi B" required>
+                                    <input type="text" id="gambar_b" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar B">
                                     <input type="text" id="opsi_c" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi C" required>
+                                    <input type="text" id="gambar_c" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar C">
                                     <input type="text" id="opsi_d" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi D" required>
+                                    <input type="text" id="gambar_d" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar D">
                                     <input type="text" id="opsi_e" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi E" required>
+                                    <input type="text" id="gambar_e" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar E">
                                     <select id="kunci_jawaban" class="p-3.5 border border-slate-200 rounded-xl" required><option value="">Jawaban Benar</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
                                 </div>
-                                <button class="w-full bg-warning hover:bg-amber-600 text-white py-3 rounded-xl font-medium">Simpan Soal</button>
+                                <button type="submit" class="w-full bg-warning hover:bg-amber-600 text-white py-3 rounded-xl font-medium">Simpan Soal</button>
                             </form>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- HASIL -->
             <div id="tab_hasil" class="tab-konten hidden">
                 <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
                     <h3 class="text-lg font-semibold mb-4 text-dark">Rekapitulasi Hasil Ujian</h3>
@@ -334,6 +362,7 @@
                 }).join('');
             }
             function kembaliPilihMapel(){document.getElementById('daftar_mapel_siswa').parentElement.classList.remove('hidden');document.getElementById('halaman_ujian').classList.add('hidden');}
+            
             async function mulaiUjian(nama){
                 if(!cekWaktuUjian(nama))return alert('Waktu ujian belum dimulai atau sudah berakhir!');
                 sessionStorage.setItem('mapel_aktif',nama);
@@ -343,7 +372,19 @@
                 document.getElementById('info_waktu').innerHTML=`<i class="fa fa-clock-o mr-2"></i> Waktu Ujian: ${dm.jam_mulai.replace('T',' ')} s.d ${dm.jam_selesai.replace('T',' ')}`;
                 if(soal.length===0){document.getElementById('wadah_soal').innerHTML='<p class="text-center text-slate-500 py-8">Belum ada soal</p>';return;}
                 document.getElementById('btn_kumpul').classList.remove('hidden');
-                document.getElementById('wadah_soal').innerHTML=soal.map((s,i)=>`<div class="p-4 bg-slate-50 rounded-xl border border-slate-100"><p class="font-medium mb-3">${i+1}. ${s.soal}</p><div class="space-y-2 pl-2"><label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="A" class="w-4 h-4 text-primary"> A. ${s.a}</label><label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="B" class="w-4 h-4 text-primary"> B. ${s.b}</label><label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="C" class="w-4 h-4 text-primary"> C. ${s.c}</label><label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="D" class="w-4 h-4 text-primary"> D. ${s.d}</label><label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="E" class="w-4 h-4 text-primary"> E. ${s.e}</label></div></div>`).join('');
+                document.getElementById('wadah_soal').innerHTML=soal.map((s,i)=>{
+                    const gSoal = s.gambar_soal ? `<img src="${s.gambar_soal}" class="gambar-soal" loading="lazy">` : '';
+                    return `<div class="p-4 bg-slate-50 rounded-xl border border-slate-100">
+                        <p class="font-medium mb-3">${i+1}. ${s.soal}</p>${gSoal}
+                        <div class="space-y-2 pl-2">
+                            <label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="A" class="w-4 h-4 text-primary"> A. ${s.a} ${s.gambar_a?`<img src="${s.gambar_a}" class="gambar-opsi" loading="lazy">`:''}</label>
+                            <label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="B" class="w-4 h-4 text-primary"> B. ${s.b} ${s.gambar_b?`<img src="${s.gambar_b}" class="gambar-opsi" loading="lazy">`:''}</label>
+                            <label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="C" class="w-4 h-4 text-primary"> C. ${s.c} ${s.gambar_c?`<img src="${s.gambar_c}" class="gambar-opsi" loading="lazy">`:''}</label>
+                            <label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="D" class="w-4 h-4 text-primary"> D. ${s.d} ${s.gambar_d?`<img src="${s.gambar_d}" class="gambar-opsi" loading="lazy">`:''}</label>
+                            <label class="flex items-center gap-3 cursor-pointer"><input type="radio" name="jwb${i}" value="E" class="w-4 h-4 text-primary"> E. ${s.e} ${s.gambar_e?`<img src="${s.gambar_e}" class="gambar-opsi" loading="lazy">`:''}</label>
+                        </div>
+                    </div>`;
+                }).join('');
                 document.getElementById('btn_kumpul').onclick=async ()=>{
                     if(!confirm('Yakin mengumpulkan jawaban?'))return;
                     let benar=0;soal.forEach((s,i)=>{const p=document.querySelector(`input[name="jwb${i}"]:checked`);if(p&&p.value===s.jawaban)benar++;});
@@ -381,7 +422,23 @@
 
         document.getElementById('form_siswa').addEventListener('submit',async e=>{e.preventDefault();if(INDEKS_EDIT_SISWA!==null){await simpanEditSiswa();return;}await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,kelas:document.getElementById('kelas_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});alert('✅ Tersimpan!');e.target.reset();muatDataAdmin();});
         document.getElementById('form_mapel').addEventListener('submit',async e=>{e.preventDefault();if(INDEKS_EDIT_MAPEL!==null){if(!confirm('Perbarui?'))return;await kirimKeServer('hapusMapel',{indeks:INDEKS_EDIT_MAPEL});await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});INDEKS_EDIT_MAPEL=null;document.getElementById('btn_mapel').innerText='Simpan';document.getElementById('btn_mapel').className='w-full bg-secondary hover:bg-emerald-700 text-white py-3 rounded-xl font-medium';alert('✅ Diperbarui!');}else{await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});alert('✅ Tersimpan!');}e.target.reset();muatDataAdmin();});
-        document.getElementById('form_soal').addEventListener('submit',async e=>{e.preventDefault();await kirimKeServer('simpanSoal',{mapel:document.getElementById('pilih_mapel').value,soal:document.getElementById('teks_soal').value,a:document.getElementById('opsi_a').value,b:document.getElementById('opsi_b').value,c:document.getElementById('opsi_c').value,d:document.getElementById('opsi_d').value,e:document.getElementById('opsi_e').value,jawaban:document.getElementById('kunci_jawaban').value});alert('✅ Soal tersimpan!');e.target.reset();muatDataAdmin();});
+        document.getElementById('form_soal').addEventListener('submit',async e=>{
+            e.preventDefault();
+            await kirimKeServer('simpanSoal',{
+                mapel:document.getElementById('pilih_mapel').value,
+                soal:document.getElementById('teks_soal').value,
+                gambar_soal:document.getElementById('gambar_soal').value,
+                a:document.getElementById('opsi_a').value, gambar_a:document.getElementById('gambar_a').value,
+                b:document.getElementById('opsi_b').value, gambar_b:document.getElementById('gambar_b').value,
+                c:document.getElementById('opsi_c').value, gambar_c:document.getElementById('gambar_c').value,
+                d:document.getElementById('opsi_d').value, gambar_d:document.getElementById('gambar_d').value,
+                e:document.getElementById('opsi_e').value, gambar_e:document.getElementById('gambar_e').value,
+                jawaban:document.getElementById('kunci_jawaban').value
+            });
+            alert('✅ Soal tersimpan!');
+            e.target.reset();
+            muatDataAdmin();
+        });
     </script>
 </body>
 </html>
