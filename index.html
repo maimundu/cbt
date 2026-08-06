@@ -230,28 +230,55 @@ function kembaliKeDaftarMapel(){
         ${s.nama || '-'}
     </span>
 </div>
-             <div style="display: flex; gap: 8px;">
-                <span style="width: 100px; text-align: right; font-weight: bold;">Kelas</span>
-                <span>:</span>
-                <span>${s.kelas || '-'}</span>
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <span style="width: 100px; text-align: right; font-weight: bold;">NIS</span>
-                <span>:</span>
-                <span>${s.nis || '-'}</span>
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <span style="width: 100px; text-align: right; font-weight: bold;">Username</span>
-                <span>:</span>
-                <span>${s.username || '-'}</span>
-            </div>
-            <div style="display: flex; gap: 8px;">
-                <span style="width: 100px; text-align: right; font-weight: bold;">Password</span>
-                <span>:</span>
-                <span>${s.password || '-'}</span>
-            </div>
-        </div>
-        
+<div style="font-size: 14px; line-height: 1.8;" text-align: left;>
+            <div style="display: flex; align-items: center;">
+    <span style="display: inline-block; width: 100px; font-weight: bold;">
+        Kelas
+    </span>
+    <span style="display: inline-block; width: 20px; text-align: center;">
+        :
+    </span>
+    <span>
+        ${s.kelas || '-'}
+    </span>
+</div>
+             <div style="font-size: 14px; line-height: 1.8;" text-align: left;>
+            <div style="display: flex; align-items: center;">
+    <span style="display: inline-block; width: 100px; font-weight: bold;">
+        NIS
+    </span>
+    <span style="display: inline-block; width: 20px; text-align: center;">
+        :
+    </span>
+    <span>
+        ${s.nis || '-'}
+    </span>
+</div>
+            <div style="font-size: 14px; line-height: 1.8;" text-align: left;>
+            <div style="display: flex; align-items: center;">
+    <span style="display: inline-block; width: 100px; font-weight: bold;">
+        Username
+    </span>
+    <span style="display: inline-block; width: 20px; text-align: center;">
+        :
+    </span>
+    <span>
+        ${s.username || '-'}
+    </span>
+</div>
+            <div style="font-size: 14px; line-height: 1.8;" text-align: left;>
+            <div style="display: flex; align-items: center;">
+    <span style="display: inline-block; width: 100px; font-weight: bold;">
+        Password
+    </span>
+    <span style="display: inline-block; width: 20px; text-align: center;">
+        :
+    </span>
+    <span>
+        ${s.password || '-'}
+    </span>
+</div>
+               
         <hr style="border: 1px solid #aaa; margin: 20px 0 10px 0;">
         <p style="font-size: 11px; text-align: center; color: #333;">Gunakan data di atas untuk login ujian</p>
     </div>`;
