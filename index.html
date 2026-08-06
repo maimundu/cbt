@@ -197,6 +197,7 @@ function kembaliKeDaftarMapel(){
             await kirimKeServer('hapusSiswa', {indeks:INDEKS_EDIT_SISWA});
             await kirimKeServer('simpanSiswa', {
                 nama:document.getElementById('nama_siswa').value,
+                kelas:document.getElementById('kelas_siswa').value,
                 nis:document.getElementById('nis_siswa').value,
                 username:document.getElementById('user_siswa').value,
                 password:document.getElementById('pass_siswa').value
