@@ -354,6 +354,13 @@ function editMapel(i){
                         <input type="text" id="pass_siswa" placeholder="Password Login" class="p-3 border rounded" required>
                         <button type="submit" class="md:col-span-2 bg-blue-600 text-white py-2 rounded">Simpan</button>
                     </form>
+
+                    <div class="flex justify-between items-center mb-3">
+    <h4 class="font-medium">Daftar Siswa Terdaftar</h4>
+    <button onclick="cetakSemuaSiswa()" class="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2">
+        <i class="fa fa-print"></i> Cetak Semua Kartu
+    </button>
+</div>
                     
                     <!-- TABEL DENGAN KOLOM PASSWORD & TOMBOL EDIT/CETAK -->
                     <table>
@@ -435,14 +442,7 @@ function editMapel(i){
                 document.getElementById('jml_mapel').innerText=DATA.mapel.length;
                 document.getElementById('jml_soal').innerText=DATA.soal.length;
                 document.getElementById('jml_hasil').innerText=DATA.hasil.length;
-
-                <div class="flex justify-between items-center mb-3">
-    <h4 class="font-medium">Daftar Siswa Terdaftar</h4>
-    <button onclick="cetakSemuaSiswa()" class="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2">
-        <i class="fa fa-print"></i> Cetak Semua Kartu
-    </button>
-</div>
-                
+             
                 // TABEL SISWA LENGKAP DENGAN PASSWORD & TOMBOL
                 document.getElementById('tabel_siswa').innerHTML=DATA.siswa.map((s,i)=>`<tr>
   <td>${i+1}</td>
