@@ -23,12 +23,23 @@
         };
 
         // === GANTI DENGAN TAUTAN APPS SCRIPT ANDA ===
-        const URL_SERVER = "https://script.google.com/macros/s/AKfycbyeqyqpx8An4MISEhFbxbNO9JtkZ_Ucj6JjcC7NwtXvBgZGHTtfaVzFHsgdCmkIaXMz/exec";  
+        const URL_SERVER = "https://script.google.com/macros/s/AKfycbyeqyqpx8An4MISEhFbxbNO9JtkZ_Ucj6JjcC7NwtXvBgZGHTtfaVzFHsgdCmkIaXMz/exec"; 
         
         let DATA = {admin: null, siswa:[], mapel:[], soal:[], hasil:[]};
         let INDEKS_EDIT_SISWA = null;
         let INDEKS_EDIT_MAPEL = null;
         let mapelTerpilih = null;
+
+        // === Konversi File Gambar ke Base64 (Bisa Disimpan & Ditampilkan Langsung) ===
+        async function fileKeBase64(file) {
+            return new Promise((resolve, reject) => {
+                if (!file) { resolve(''); return; }
+                const reader = new FileReader();
+                reader.onload = e => resolve(e.target.result);
+                reader.onerror = err => reject(err);
+                reader.readAsDataURL(file);
+            });
+        }
 
         async function muatDariServer() {
             try {
@@ -86,8 +97,10 @@
             button, header, nav, .no-print { display: none !important; }
         }
         input:focus, select:focus, textarea:focus { outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2); }
-        .gambar-soal { max-width: 100%; max-height: 250px; object-fit: contain; border-radius: 8px; margin: 8px 0; border:1px solid #e2e8f0; }
-        .gambar-opsi { max-width: 180px; max-height: 100px; object-fit: contain; border-radius: 6px; margin-left: 8px; border:1px solid #e2e8f0; }
+        .gambar-soal { max-width: 100%; max-height: 300px; object-fit: contain; border-radius: 8px; margin: 8px 0; border:1px solid #e2e8f0; }
+        .gambar-opsi { max-width: 200px; max-height: 120px; object-fit: contain; border-radius: 6px; margin-left: 10px; border:1px solid #e2e8f0; }
+        .preview-img { max-width: 150px; max-height: 100px; margin-top: 6px; border-radius: 6px; border:1px dashed #cbd5e1; padding:4px; display:none; }
+        .input-file { font-size:14px; padding:6px; border:1px solid #e2e8f0; border-radius:6px; background:#f8fafc; }
     </style>
 </head>
 <body class="bg-slate-50 min-h-screen text-slate-800">
@@ -114,14 +127,31 @@
             return s>=m&&s<=e;
         }
 
+        // === Preview Gambar Saat Dipilih ===
+        function tampilkanPreview(inputId, previewId) {
+            const input = document.getElementById(inputId);
+            const preview = document.getElementById(previewId);
+            const file = input.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = e => {
+                    preview.src = e.target.result;
+                    preview.style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            } else {
+                preview.style.display = 'none';
+            }
+        }
+
         function downloadTemplateSoal(){
             const d=[
-                ["Mata Pelajaran","Pertanyaan","Gambar Soal","Opsi A","Gambar A","Opsi B","Gambar B","Opsi C","Gambar C","Opsi D","Gambar D","Opsi E","Gambar E","Jawaban"],
+                ["Mata Pelajaran","Pertanyaan","Gambar Soal (URL)","Opsi A","Gambar A (URL)","Opsi B","Gambar B (URL)","Opsi C","Gambar C (URL)","Opsi D","Gambar D (URL)","Opsi E","Gambar E (URL)","Jawaban"],
                 ["Matematika","Lihat gambar dibawah ini berapakah hasilnya?","","5","","10","","15","","20","","25","","B"]
             ];
             const wb=XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(d));
-            XLSX.writeFile(wb,"Template_Soal_Dengan_Gambar.xlsx");
+            XLSX.writeFile(wb,"Template_Soal.xlsx");
         }
 
         async function prosesUploadSoal(e){
@@ -290,25 +320,47 @@
                                 <div class="flex items-center gap-3 mb-4"><button onclick="kembaliKeDaftarMapel()" class="text-primary hover:text-blue-700 font-medium"><i class="fa fa-arrow-left"></i> Kembali</button><b id="nama_mapel_dilihat"></b></div>
                                 <div id="isi_daftar_soal" class="max-h-[450px] overflow-y-auto pr-2"></div>
                             </div>
-                            <h4 class="font-medium mb-3 text-slate-700">Tambah Soal Baru</h4>
+                            <h4 class="font-medium mb-3 text-slate-700">Tambah Soal Baru (Unggah Gambar Langsung)</h4>
                             <form id="form_soal" class="space-y-3">
                                 <select id="pilih_mapel" class="w-full p-3.5 border border-slate-200 rounded-xl" required><option value="">Pilih Mata Pelajaran</option></select>
-                                <textarea id="teks_soal" rows="2" class="w-full p-3.5 border border-slate-200 rounded-xl" placeholder="Tulis pertanyaan..." required></textarea>
-                                <input type="text" id="gambar_soal" class="w-full p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar Soal (Opsional)">
+                                <textarea id="teks_soal" rows="2" class="w-full p-3.5 border border-slate-200 rounded-xl" placeholder="Tulis pertanyaan atau biarkan kosong jika soal berupa gambar..." required></textarea>
+                                
+                                <!-- === UNGGAH GAMBAR SOAL LANGSUNG === -->
+                                <div>
+                                    <label class="text-sm font-medium text-slate-600">📷 Gambar Soal</label>
+                                    <input type="file" accept="image/*" id="file_gambar_soal" class="input-file w-full" onchange="tampilkanPreview('file_gambar_soal','prev_gambar_soal')">
+                                    <img id="prev_gambar_soal" class="preview-img" alt="Preview Gambar Soal">
+                                </div>
+
                                 <div class="grid grid-cols-2 gap-3">
-                                    <input type="text" id="opsi_a" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi A" required>
-                                    <input type="text" id="gambar_a" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar A">
-                                    <input type="text" id="opsi_b" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi B" required>
-                                    <input type="text" id="gambar_b" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar B">
-                                    <input type="text" id="opsi_c" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi C" required>
-                                    <input type="text" id="gambar_c" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar C">
-                                    <input type="text" id="opsi_d" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi D" required>
-                                    <input type="text" id="gambar_d" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar D">
-                                    <input type="text" id="opsi_e" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi E" required>
-                                    <input type="text" id="gambar_e" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Link Gambar E">
+                                    <div>
+                                        <input type="text" id="opsi_a" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi A" required>
+                                        <input type="file" accept="image/*" id="file_gambar_a" class="input-file w-full mt-1" onchange="tampilkanPreview('file_gambar_a','prev_gambar_a')">
+                                        <img id="prev_gambar_a" class="preview-img" alt="Preview Gambar A">
+                                    </div>
+                                    <div>
+                                        <input type="text" id="opsi_b" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi B" required>
+                                        <input type="file" accept="image/*" id="file_gambar_b" class="input-file w-full mt-1" onchange="tampilkanPreview('file_gambar_b','prev_gambar_b')">
+                                        <img id="prev_gambar_b" class="preview-img" alt="Preview Gambar B">
+                                    </div>
+                                    <div>
+                                        <input type="text" id="opsi_c" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi C" required>
+                                        <input type="file" accept="image/*" id="file_gambar_c" class="input-file w-full mt-1" onchange="tampilkanPreview('file_gambar_c','prev_gambar_c')">
+                                        <img id="prev_gambar_c" class="preview-img" alt="Preview Gambar C">
+                                    </div>
+                                    <div>
+                                        <input type="text" id="opsi_d" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi D" required>
+                                        <input type="file" accept="image/*" id="file_gambar_d" class="input-file w-full mt-1" onchange="tampilkanPreview('file_gambar_d','prev_gambar_d')">
+                                        <img id="prev_gambar_d" class="preview-img" alt="Preview Gambar D">
+                                    </div>
+                                    <div>
+                                        <input type="text" id="opsi_e" class="p-3.5 border border-slate-200 rounded-xl" placeholder="Opsi E" required>
+                                        <input type="file" accept="image/*" id="file_gambar_e" class="input-file w-full mt-1" onchange="tampilkanPreview('file_gambar_e','prev_gambar_e')">
+                                        <img id="prev_gambar_e" class="preview-img" alt="Preview Gambar E">
+                                    </div>
                                     <select id="kunci_jawaban" class="p-3.5 border border-slate-200 rounded-xl" required><option value="">Jawaban Benar</option><option value="A">A</option><option value="B">B</option><option value="C">C</option><option value="D">D</option><option value="E">E</option></select>
                                 </div>
-                                <button type="submit" class="w-full bg-warning hover:bg-amber-600 text-white py-3 rounded-xl font-medium">Simpan Soal</button>
+                                <button type="submit" class="w-full bg-warning hover:bg-amber-600 text-white py-3 rounded-xl font-medium">💾 Simpan Soal</button>
                             </form>
                         </div>
                     </div>
@@ -420,25 +472,4 @@
             muatDaftarMapelSoal();
         }
 
-        document.getElementById('form_siswa').addEventListener('submit',async e=>{e.preventDefault();if(INDEKS_EDIT_SISWA!==null){await simpanEditSiswa();return;}await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,kelas:document.getElementById('kelas_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});alert('✅ Tersimpan!');e.target.reset();muatDataAdmin();});
-        document.getElementById('form_mapel').addEventListener('submit',async e=>{e.preventDefault();if(INDEKS_EDIT_MAPEL!==null){if(!confirm('Perbarui?'))return;await kirimKeServer('hapusMapel',{indeks:INDEKS_EDIT_MAPEL});await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});INDEKS_EDIT_MAPEL=null;document.getElementById('btn_mapel').innerText='Simpan';document.getElementById('btn_mapel').className='w-full bg-secondary hover:bg-emerald-700 text-white py-3 rounded-xl font-medium';alert('✅ Diperbarui!');}else{await kirimKeServer('simpanMapel',{nama:document.getElementById('nama_mapel').value,jam_mulai:document.getElementById('jam_mulai').value,jam_selesai:document.getElementById('jam_selesai').value});alert('✅ Tersimpan!');}e.target.reset();muatDataAdmin();});
-        document.getElementById('form_soal').addEventListener('submit',async e=>{
-            e.preventDefault();
-            await kirimKeServer('simpanSoal',{
-                mapel:document.getElementById('pilih_mapel').value,
-                soal:document.getElementById('teks_soal').value,
-                gambar_soal:document.getElementById('gambar_soal').value,
-                a:document.getElementById('opsi_a').value, gambar_a:document.getElementById('gambar_a').value,
-                b:document.getElementById('opsi_b').value, gambar_b:document.getElementById('gambar_b').value,
-                c:document.getElementById('opsi_c').value, gambar_c:document.getElementById('gambar_c').value,
-                d:document.getElementById('opsi_d').value, gambar_d:document.getElementById('gambar_d').value,
-                e:document.getElementById('opsi_e').value, gambar_e:document.getElementById('gambar_e').value,
-                jawaban:document.getElementById('kunci_jawaban').value
-            });
-            alert('✅ Soal tersimpan!');
-            e.target.reset();
-            muatDataAdmin();
-        });
-    </script>
-</body>
-</html>
+        document.getElementById('form_siswa').addEventListener('submit',async e=>{e.preventDefault();if(INDEKS_EDIT_SISWA!==null){await simpanEditSiswa();return;}await kirimKeServer('simpanSiswa',{nama:document.getElementById('nama_siswa').value,kelas:document.getElementById('kelas_siswa').value,nis:document.getElementById('nis_siswa').value,username:document.getElementById('user_siswa').value,password:document.getElementById('pass_siswa').value});alert('✅ Tersimpan!');e.target.reset();muatDataAdmin();
