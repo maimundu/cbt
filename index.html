@@ -256,6 +256,47 @@ function kembaliKeDaftarMapel(){
         area.classList.add('hidden');
     }, 300);
 }
+
+        // Fungsi Cetak Semua Kartu Siswa
+        // === FUNGSI CETAK SEMUA SISWA ===
+function cetakSemuaSiswa(){
+    if(DATA.siswa.length === 0){
+        alert("Belum ada data siswa untuk dicetak!");
+        return;
+    }
+
+    const area = document.getElementById('area_cetak');
+    area.classList.remove('hidden');
+
+    // Susun semua kartu dengan format rapi
+    let isiKartu = '';
+    DATA.siswa.forEach(s => {
+        isiKartu += `
+        <div style="width: 280px; display: inline-block; margin: 10px; padding: 20px; border: 1px solid #333; border-radius: 6px; font-family: Arial; font-size: 13px; vertical-align: top;">
+            <h4 style="text-align: center; font-size: 15px; font-weight: bold; margin: 0 0 12px 0;">KARTU AKSES UJIAN</h4>
+            <hr style="border: 1px solid #ccc; margin: 8px 0;">
+            
+            <div style="line-height: 1.7; text-align: left;">
+                <p><b>Nama</b> : ${s.nama || '-'}</p>
+                <p><b>Kelas</b> : ${s.kelas || '-'}</p>
+                <p><b>NIS</b> : ${s.nis || '-'}</p>
+                <p><b>Username</b> : ${s.username || '-'}</p>
+                <p><b>Password</b> : ${s.password || '-'}</p>
+            </div>
+            
+            <hr style="border: 1px solid #ccc; margin: 12px 0 8px 0;">
+            <p style="font-size: 10px; text-align: center;">Gunakan untuk login ujian</p>
+        </div>`;
+    });
+
+    area.innerHTML = isiKartu;
+
+    // Buka jendela cetak, lalu sembunyikan kembali
+    setTimeout(() => {
+        window.print();
+        area.classList.add('hidden');
+    }, 300);
+}
         // === FUNGSI EDIT MAPEL ===
 function editMapel(i){
     const m = DATA.mapel[i];
@@ -396,6 +437,14 @@ function editMapel(i){
                 document.getElementById('jml_soal').innerText=DATA.soal.length;
                 document.getElementById('jml_hasil').innerText=DATA.hasil.length;
 
+                //Cetak Semua Kartu
+                <div class="flex justify-between items-center mb-3">
+    <h4 class="font-medium">Daftar Siswa Terdaftar</h4>
+    <button onclick="cetakSemuaSiswa()" class="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2">
+        <i class="fa fa-print"></i> Cetak Semua Kartu
+    </button>
+</div>
+                
                 // TABEL SISWA LENGKAP DENGAN PASSWORD & TOMBOL
                 document.getElementById('tabel_siswa').innerHTML=DATA.siswa.map((s,i)=>`<tr>
   <td>${i+1}</td>
